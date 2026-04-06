@@ -499,18 +499,24 @@ export default function FieldsPage() {
 
   // Auto-seed default fields if this admin has none yet
   useEffect(() => {
-    fetch("/api/admin/fields")
-      .then((r) => r.json())
-      .then(async (d) => {
-        if (Array.isArray(d) && d.length === 0) {
-          setSeeding(true);
-          await fetch("/api/admin/seed-fields", { method: "POST" });
-          setSeeding(false);
+    (async () => {
+      const r = await fetch("/api/admin/fields");
+      const d = await r.json();
+      if (Array.isArray(d) && d.length === 0) {
+        // Seed first, then load populated fields
+        setSeeding(true);
+        const seedRes = await fetch("/api/admin/seed-fields", { method: "POST" });
+        const seedJson = await seedRes.json().catch(() => ({}));
+        setSeeding(false);
+        if (seedJson.error) {
+          setError(`Seed failed: ${seedJson.error}`);
         }
+        // Always reload after attempting seed
+        await load();
+      } else {
         setFields(Array.isArray(d) ? d : []);
-        // Reload after seeding
-        if (Array.isArray(d) && d.length === 0) load();
-      });
+      }
+    })();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 

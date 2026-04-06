@@ -22,7 +22,8 @@ export default async function UserFormPage({
     .order("section")
     .order("sort_order");
 
-  if (error || !fields || fields.length === 0) {
+  // Only 404 on a DB error or an invalid userId — empty fields is fine (show a blank form)
+  if (error) {
     notFound();
   }
 

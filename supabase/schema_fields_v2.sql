@@ -11,7 +11,15 @@ ALTER TABLE custom_fields ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.
 
 -- site_settings: per-user settings
 ALTER TABLE site_settings ADD COLUMN IF NOT EXISTS user_id uuid REFERENCES auth.users(id);
-ALTER TABLE site_settings ADD CONSTRAINT IF NOT EXISTS site_settings_user_id_key UNIQUE (user_id);
+-- Add unique constraint only if it doesn't already exist
+DO $$
+BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_constraint WHERE conname = 'site_settings_user_id_key'
+  ) THEN
+    ALTER TABLE site_settings ADD CONSTRAINT site_settings_user_id_key UNIQUE (user_id);
+  END IF;
+END $$;
 
 -- quotes: tag which admin owns each submission
 ALTER TABLE quotes ADD COLUMN IF NOT EXISTS owner_user_id uuid REFERENCES auth.users(id);
