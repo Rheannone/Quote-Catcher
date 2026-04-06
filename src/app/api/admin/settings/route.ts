@@ -29,9 +29,28 @@ export async function POST(req: NextRequest) {
   if (body.font_family !== undefined) patch.font_family = body.font_family;
   if (body.logo_url !== undefined) patch.logo_url = body.logo_url;
 
-  const { error } = await supabase
+  // Look for an existing row: this user's row, or a legacy row with null user_id
+  const { data: existing } = await supabase
     .from("site_settings")
-    .upsert({ ...patch, user_id: user.id }, { onConflict: "user_id" });
+    .select("id")
+    .or(`user_id.eq.${user.id},user_id.is.null`)
+    .order("id")
+    .limit(1)
+    .maybeSingle();
+
+  let error;
+  if (existing?.id) {
+    // UPDATE the existing row, claiming it for this user
+    ({ error } = await supabase
+      .from("site_settings")
+      .update({ ...patch, user_id: user.id })
+      .eq("id", existing.id));
+  } else {
+    // No row at all — insert fresh
+    ({ error } = await supabase
+      .from("site_settings")
+      .insert({ ...patch, user_id: user.id }));
+  }
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
