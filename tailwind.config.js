@@ -9,8 +9,8 @@ module.exports = {
     extend: {
       colors: {
         brand: {
-          DEFAULT: "#1a1a2e",
-          accent: "#e94560",
+          DEFAULT: "var(--brand-color, #1a1a2e)",
+          accent: "var(--brand-accent, #e94560)",
           light: "#f5f5f5",
         },
       },

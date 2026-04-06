@@ -35,6 +35,15 @@ type FormValues = {
   apparelBrand: string;
   hasArtwork: "Yes" | "No" | "In Progress";
   additionalDetails: string;
+  custom: Record<string, string | boolean | number>;
+};
+
+export type CustomField = {
+  id: string;
+  label: string;
+  field_type: "text" | "textarea" | "select" | "checkbox" | "number";
+  required: boolean;
+  options: string[] | null;
 };
 
 const LOCATION_OPTIONS = [
@@ -68,7 +77,11 @@ function Field({
   );
 }
 
-export default function QuoteForm() {
+export default function QuoteForm({
+  customFields,
+}: {
+  customFields: CustomField[];
+}) {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState("");
@@ -83,6 +96,7 @@ export default function QuoteForm() {
       fulfillment: "Pick-up",
       printLocations: [],
       hasArtwork: "Yes",
+      custom: {},
     },
   });
 
@@ -407,6 +421,77 @@ export default function QuoteForm() {
           />
         </Field>
       </section>
+
+      {/* ── Custom Fields ───────────────────────── */}
+      {customFields.length > 0 && (
+        <section className="bg-white rounded-2xl shadow-sm p-6 space-y-5">
+          <h2 className="section-heading">Additional Information</h2>
+          {customFields.map((field) => {
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const customErrors = (errors as any).custom ?? {};
+            const fieldError: string | undefined =
+              customErrors[field.id]?.message;
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const reg = (opts?: object) => register(`custom.${field.id}` as any, opts);
+
+            if (field.field_type === "checkbox") {
+              return (
+                <div key={field.id}>
+                  <label className="flex items-center gap-2 text-sm cursor-pointer select-none">
+                    <input
+                      type="checkbox"
+                      {...reg()}
+                      className="accent-brand-accent w-4 h-4"
+                    />
+                    {field.label}
+                    {field.required && (
+                      <span className="text-red-500 ml-0.5">*</span>
+                    )}
+                  </label>
+                  {fieldError && (
+                    <p className="form-error">{fieldError}</p>
+                  )}
+                </div>
+              );
+            }
+
+            const required = field.required
+              ? "This field is required"
+              : false;
+
+            return (
+              <Field
+                key={field.id}
+                label={field.label}
+                required={field.required}
+                error={fieldError}
+              >
+                {field.field_type === "textarea" ? (
+                  <textarea
+                    {...reg({ required })}
+                    className="form-input min-h-[80px] resize-y"
+                  />
+                ) : field.field_type === "select" ? (
+                  <select {...reg({ required })} className="form-input">
+                    <option value="">Select…</option>
+                    {(field.options ?? []).map((opt) => (
+                      <option key={opt} value={opt}>
+                        {opt}
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <input
+                    type={field.field_type === "number" ? "number" : "text"}
+                    {...reg({ required })}
+                    className="form-input"
+                  />
+                )}
+              </Field>
+            );
+          })}
+        </section>
+      )}
 
       {serverError && (
         <div className="bg-red-50 border border-red-300 text-red-700 rounded-lg px-4 py-3 text-sm">

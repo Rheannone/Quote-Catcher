@@ -1,6 +1,15 @@
 import QuoteForm from "@/components/QuoteForm";
+import { getSupabaseAdmin } from "@/lib/supabase";
+import type { CustomField } from "@/components/QuoteForm";
 
-export default function HomePage() {
+export default async function HomePage() {
+  const supabase = getSupabaseAdmin();
+  const { data: customFields } = await supabase
+    .from("custom_fields")
+    .select("*")
+    .eq("active", true)
+    .order("sort_order");
+
   return (
     <div className="max-w-3xl mx-auto px-4 py-10">
       <div className="mb-8 text-center">
@@ -12,7 +21,7 @@ export default function HomePage() {
           days. Please have your artwork and order details ready.
         </p>
       </div>
-      <QuoteForm />
+      <QuoteForm customFields={(customFields ?? []) as CustomField[]} />
     </div>
   );
 }

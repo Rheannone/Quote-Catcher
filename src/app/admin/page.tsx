@@ -24,6 +24,7 @@ type Quote = {
   apparel_brand: string;
   has_artwork: string;
   additional_details: string;
+  custom_fields_data: Record<string, unknown> | null;
 };
 
 function Badge({ text }: { text: string }) {
@@ -147,6 +148,26 @@ export default async function AdminPage() {
                   </p>
                 </div>
               )}
+
+              {q.custom_fields_data &&
+                Object.keys(q.custom_fields_data).length > 0 && (
+                  <div className="mt-4 border-t border-gray-100 pt-4">
+                    <p className="text-xs font-semibold text-gray-400 uppercase mb-2">
+                      Custom Fields
+                    </p>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
+                      {Object.entries(q.custom_fields_data).map(
+                        ([key, val]) => (
+                          <Info
+                            key={key}
+                            label={key}
+                            value={String(val ?? "")}
+                          />
+                        )
+                      )}
+                    </div>
+                  </div>
+                )}
             </div>
           ))}
         </div>

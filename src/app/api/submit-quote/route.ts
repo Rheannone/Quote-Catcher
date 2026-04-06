@@ -32,6 +32,7 @@ export async function POST(req: NextRequest) {
       apparelBrand,
       hasArtwork,
       additionalDetails,
+      custom,
     } = body;
 
     const supabase = getSupabaseAdmin();
@@ -64,6 +65,7 @@ export async function POST(req: NextRequest) {
         apparel_brand: apparelBrand,
         has_artwork: hasArtwork,
         additional_details: additionalDetails,
+        custom_fields_data: custom ?? null,
       },
     ]);
 
