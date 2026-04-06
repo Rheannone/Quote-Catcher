@@ -221,8 +221,10 @@ export default function QuoteForm({
     const activeFields = fields.filter((f) => f.active);
     const bySection: Record<string, CustomField[]> = {};
     for (const f of activeFields) {
-      if (!bySection[f.section]) bySection[f.section] = [];
-      bySection[f.section].push(f);
+      // Treat null / empty section as "additional"
+      const sec = f.section || "additional";
+      if (!bySection[sec]) bySection[sec] = [];
+      bySection[sec].push(f);
     }
     // Sort each section's fields by sort_order
     for (const s of Object.keys(bySection)) {

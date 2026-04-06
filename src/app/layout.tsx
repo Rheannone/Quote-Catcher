@@ -59,28 +59,10 @@ export default async function RootLayout({
         <link href={fontHref} rel="stylesheet" />
       </head>
       <body
-        className="min-h-screen flex flex-col"
+        className="min-h-screen flex flex-col bg-gray-50 text-gray-900"
         style={{ ...cssVars, fontFamily: `'${fontFamily}', sans-serif` }}
       >
-        <header className="bg-brand text-white py-5 px-6 shadow-md">
-          <div className="max-w-3xl mx-auto flex items-center gap-3">
-            {logoUrl && (
-              // eslint-disable-next-line @next/next/no-img-element
-              <img
-                src={logoUrl}
-                alt="Logo"
-                className="h-9 w-9 object-contain rounded"
-              />
-            )}
-            <span className="text-2xl font-black tracking-widest uppercase">
-              Latziyela Prints
-            </span>
-          </div>
-        </header>
-        <main className="flex-1">{children}</main>
-        <footer className="bg-brand text-white text-center text-xs py-4 mt-10">
-          © {new Date().getFullYear()} Latziyela Prints. All rights reserved.
-        </footer>
+        {children}
       </body>
     </html>
   );
