@@ -7,11 +7,22 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const supabase = getSupabaseAdmin();
-  const { data } = await supabase
+
+  // Try user-scoped row first, fall back to legacy null-user_id row
+  let { data } = await supabase
     .from("site_settings")
     .select("*")
     .eq("user_id", user.id)
     .maybeSingle();
+
+  if (!data) {
+    const { data: fallback } = await supabase
+      .from("site_settings")
+      .select("*")
+      .is("user_id", null)
+      .maybeSingle();
+    data = fallback;
+  }
 
   return NextResponse.json(data ?? {});
 }
