@@ -9,7 +9,8 @@ export default async function AdminLayout({
   const user = await getSessionUser();
 
   return (
-    <div>
+    // Force Inter on all admin pages regardless of brand font setting
+    <div style={{ fontFamily: "'Inter', -apple-system, sans-serif" }}>
       <nav className="bg-white border-b border-gray-200 px-6 py-0 sticky top-0 z-10 shadow-sm">
         <div className="max-w-5xl mx-auto flex items-center gap-0">
           {[

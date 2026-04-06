@@ -1,6 +1,8 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+
+// ── Types ────────────────────────────────────────────────────────────────────
 
 type FieldType = "text" | "textarea" | "select" | "checkbox" | "number";
 
@@ -14,8 +16,10 @@ type CustomField = {
   active: boolean;
 };
 
+// ── Helpers ──────────────────────────────────────────────────────────────────
+
 const TYPE_META: Record<FieldType, { label: string; icon: string; hint: string }> = {
-  text:     { label: "Short text", icon: "Aa", hint: "Single line text input" },
+  text:     { label: "Short text", icon: "Aa", hint: "Single-line text input" },
   textarea: { label: "Long text",  icon: "\u00b6",  hint: "Multi-line text area" },
   select:   { label: "Dropdown",   icon: "\u25be",  hint: "Customer picks one option" },
   checkbox: { label: "Checkbox",   icon: "\u2611",  hint: "Yes / No toggle" },
@@ -26,32 +30,190 @@ function parseOptions(str: string): string[] | null {
   const arr = str.split(",").map((s) => s.trim()).filter(Boolean);
   return arr.length > 0 ? arr : null;
 }
+
 function optionsToString(opts: string[] | null): string {
   return opts?.join(", ") ?? "";
 }
 
-function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
+// ── FieldRenderer ─────────────────────────────────────────────────────────────
+// Renders a field exactly like it appears on the public quote form.
+// Hover / click shows an action toolbar. Selected field gets a ring.
+
+function FieldRenderer({
+  field,
+  index,
+  total,
+  selected,
+  onSelect,
+  onMove,
+  onToggleActive,
+  onDelete,
+}: {
+  field: CustomField;
+  index: number;
+  total: number;
+  selected: boolean;
+  onSelect: () => void;
+  onMove: (dir: -1 | 1) => void;
+  onToggleActive: () => void;
+  onDelete: () => void;
+}) {
+  const [hovered, setHovered] = useState(false);
+  const opts = field.options ?? [];
+  const showToolbar = hovered || selected;
+
   return (
-    <button
-      role="switch"
-      aria-checked={checked}
-      onClick={onChange}
-      className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${checked ? "bg-brand-accent" : "bg-gray-300"}`}
+    <div
+      className={`relative rounded-xl transition-all duration-150 cursor-pointer ${
+        selected
+          ? "ring-2 ring-brand-accent ring-offset-2"
+          : hovered
+          ? "ring-2 ring-gray-300 ring-offset-1"
+          : ""
+      } ${field.active ? "" : "opacity-40"}`}
+      onMouseEnter={() => setHovered(true)}
+      onMouseLeave={() => setHovered(false)}
+      onClick={onSelect}
     >
-      <span
-        className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
-          checked ? "translate-x-4" : "translate-x-0"
-        }`}
-      />
-    </button>
+      {/* Floating toolbar */}
+      {showToolbar && (
+        <div
+          className="absolute -top-4 right-0 z-20 flex items-center gap-0.5 bg-white border border-gray-200 rounded-lg shadow-lg px-1.5 py-1"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* Move arrows */}
+          <button
+            onClick={() => onMove(-1)}
+            disabled={index === 0}
+            className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-20 text-gray-500 text-xs leading-none"
+            title="Move up"
+          >
+            &#9650;
+          </button>
+          <button
+            onClick={() => onMove(1)}
+            disabled={index === total - 1}
+            className="p-1.5 rounded hover:bg-gray-100 disabled:opacity-20 text-gray-500 text-xs leading-none"
+            title="Move down"
+          >
+            &#9660;
+          </button>
+
+          <span className="w-px h-4 bg-gray-200 mx-0.5" />
+
+          {/* Edit */}
+          <button
+            onClick={onSelect}
+            className={`p-1.5 rounded text-xs leading-none transition ${
+              selected ? "bg-brand-accent/10 text-brand-accent" : "hover:bg-gray-100 text-gray-500"
+            }`}
+            title="Edit field"
+          >
+            &#9999;&#65038;
+          </button>
+
+          <span className="w-px h-4 bg-gray-200 mx-0.5" />
+
+          {/* Active toggle */}
+          <button
+            onClick={onToggleActive}
+            className={`p-1.5 rounded text-xs leading-none transition ${
+              field.active
+                ? "text-green-500 hover:bg-green-50"
+                : "text-gray-300 hover:bg-gray-100"
+            }`}
+            title={field.active ? "Hide from form" : "Show on form"}
+          >
+            {field.active ? "●" : "○"}
+          </button>
+
+          <span className="w-px h-4 bg-gray-200 mx-0.5" />
+
+          {/* Delete */}
+          <button
+            onClick={onDelete}
+            className="p-1.5 rounded text-xs leading-none text-red-400 hover:bg-red-50 hover:text-red-600 transition"
+            title="Delete field"
+          >
+            &#10005;
+          </button>
+        </div>
+      )}
+
+      {/* Field rendered exactly like the public form */}
+      <div className="py-0.5 pointer-events-none select-none">
+        {field.field_type === "checkbox" ? (
+          <label className="flex items-center gap-2.5 text-sm">
+            <input
+              type="checkbox"
+              readOnly
+              tabIndex={-1}
+              className="accent-brand-accent w-4 h-4 shrink-0"
+            />
+            <span className="form-label !mb-0">
+              {field.label || <em className="text-gray-300 not-italic">Untitled</em>}
+              {field.required && <span className="text-red-500 ml-0.5">*</span>}
+            </span>
+          </label>
+        ) : (
+          <div>
+            <label className="form-label">
+              {field.label || <em className="text-gray-300 not-italic">Untitled field</em>}
+              {field.required && <span className="text-red-500 ml-0.5">*</span>}
+            </label>
+
+            {field.field_type === "textarea" && (
+              <div className="form-input min-h-[72px] text-gray-300 text-sm">
+                Your answer here&hellip;
+              </div>
+            )}
+
+            {field.field_type === "select" && (
+              <div className="form-input text-gray-400 flex items-center justify-between">
+                <span>{opts[0] || "Select an option\u2026"}</span>
+                <svg
+                  className="w-4 h-4 text-gray-400 shrink-0"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </div>
+            )}
+
+            {field.field_type === "number" && (
+              <div className="form-input text-gray-300">0</div>
+            )}
+
+            {field.field_type === "text" && (
+              <div className="form-input text-gray-300">Your answer here&hellip;</div>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
   );
 }
 
-function TypePicker({ value, onChange }: { value: FieldType; onChange: (t: FieldType) => void }) {
+// ── TypePicker ─────────────────────────────────────────────────────────────────
+
+function TypePicker({
+  value,
+  onChange,
+}: {
+  value: FieldType;
+  onChange: (t: FieldType) => void;
+}) {
   return (
     <div>
       <label className="form-label">Field type</label>
-      <div className="grid grid-cols-5 gap-2">
+      <div className="grid grid-cols-5 gap-1.5">
         {(Object.entries(TYPE_META) as [FieldType, (typeof TYPE_META)[FieldType]][]).map(
           ([type, m]) => (
             <button
@@ -63,8 +225,8 @@ function TypePicker({ value, onChange }: { value: FieldType; onChange: (t: Field
                   : "border-gray-200 text-gray-500 hover:border-gray-400"
               }`}
             >
-              <span className="text-base font-bold">{m.icon}</span>
-              <span>{m.label}</span>
+              <span className="text-base font-bold leading-none">{m.icon}</span>
+              <span className="leading-tight text-center">{m.label}</span>
             </button>
           )
         )}
@@ -74,379 +236,275 @@ function TypePicker({ value, onChange }: { value: FieldType; onChange: (t: Field
   );
 }
 
-function FieldPreview({
-  field_type,
-  label,
-  options,
-  required,
-}: {
-  field_type: FieldType;
-  label: string;
-  options: string;
-  required: boolean;
-}) {
-  const displayLabel = label || "Untitled field";
-  const optList = parseOptions(options) ?? [];
+// ── Toggle ─────────────────────────────────────────────────────────────────────
+
+function Toggle({ checked, onChange }: { checked: boolean; onChange: () => void }) {
   return (
-    <div className="pointer-events-none select-none opacity-70 mt-3 border-t border-dashed border-gray-200 pt-3">
-      <p className="text-[10px] font-semibold uppercase tracking-widest text-gray-400 mb-2">
-        Preview
-      </p>
-      <label className="form-label text-xs">
-        {displayLabel}
-        {required && <span className="text-red-500 ml-0.5">*</span>}
-      </label>
-      {field_type === "textarea" ? (
-        <div className="form-input bg-gray-50 h-14 text-gray-300 text-xs flex items-start pt-2">
-          Your answer&hellip;
-        </div>
-      ) : field_type === "select" ? (
-        <div className="form-input bg-gray-50 text-gray-300 text-xs flex items-center justify-between">
-          <span>{optList[0] || "Select\u2026"}</span>
-          <span>{"\u25be"}</span>
-        </div>
-      ) : field_type === "checkbox" ? (
-        <label className="flex items-center gap-2 text-sm text-gray-300">
-          <span className="w-4 h-4 border border-gray-300 rounded inline-block" />
-          {displayLabel}
-        </label>
-      ) : (
-        <div className="form-input bg-gray-50 text-gray-300 text-xs">
-          {field_type === "number" ? "0" : "Your answer\u2026"}
-        </div>
-      )}
-    </div>
+    <button
+      role="switch"
+      aria-checked={checked}
+      onClick={onChange}
+      className={`relative w-9 h-5 rounded-full transition-colors shrink-0 ${
+        checked ? "bg-brand-accent" : "bg-gray-300"
+      }`}
+    >
+      <span
+        className={`absolute top-0.5 left-0.5 w-4 h-4 rounded-full bg-white shadow transition-transform ${
+          checked ? "translate-x-4" : "translate-x-0"
+        }`}
+      />
+    </button>
   );
 }
 
-function FieldCard({
+// ── EditorPanel ───────────────────────────────────────────────────────────────
+// Right-side sticky panel. isNew=true → "Add field" mode.
+
+function EditorPanel({
   field,
-  index,
-  total,
+  isNew,
   onSave,
+  onAdd,
+  onCancel,
   onDelete,
-  onMove,
-  onToggleActive,
 }: {
-  field: CustomField;
-  index: number;
-  total: number;
+  field: CustomField | null;
+  isNew: boolean;
   onSave: (id: string, patch: Partial<CustomField>) => Promise<void>;
+  onAdd: (f: Omit<CustomField, "id" | "sort_order" | "active">) => Promise<void>;
+  onCancel: () => void;
   onDelete: (id: string) => void;
-  onMove: (index: number, dir: -1 | 1) => void;
-  onToggleActive: (field: CustomField) => void;
 }) {
-  const [open, setOpen] = useState(false);
-  const [label, setLabel] = useState(field.label);
-  const [fieldType, setFieldType] = useState<FieldType>(field.field_type);
-  const [required, setRequired] = useState(field.required);
-  const [options, setOptions] = useState(optionsToString(field.options));
+  const [label, setLabel] = useState(field?.label ?? "");
+  const [fieldType, setFieldType] = useState<FieldType>(field?.field_type ?? "text");
+  const [required, setRequired] = useState(field?.required ?? false);
+  const [options, setOptions] = useState(optionsToString(field?.options ?? null));
   const [saving, setSaving] = useState(false);
-  const [dirty, setDirty] = useState(false);
   const labelRef = useRef<HTMLInputElement>(null);
 
+  // Reset state whenever the selected field changes
   useEffect(() => {
-    const changed =
-      label !== field.label ||
+    setLabel(field?.label ?? "");
+    setFieldType(field?.field_type ?? "text");
+    setRequired(field?.required ?? false);
+    setOptions(optionsToString(field?.options ?? null));
+    setTimeout(() => labelRef.current?.focus(), 60);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [field?.id, isNew]);
+
+  const dirty =
+    !isNew &&
+    field != null &&
+    (label !== field.label ||
       fieldType !== field.field_type ||
       required !== field.required ||
-      options !== optionsToString(field.options);
-    setDirty(changed);
-  }, [label, fieldType, required, options, field]);
+      options !== optionsToString(field.options));
 
-  useEffect(() => {
-    if (open) setTimeout(() => labelRef.current?.focus(), 50);
-  }, [open]);
-
-  const handleSave = async () => {
+  const handleSubmit = async () => {
+    if (!label.trim()) return;
     setSaving(true);
-    await onSave(field.id, {
-      label,
-      field_type: fieldType,
-      required,
-      options: fieldType === "select" ? parseOptions(options) : null,
-    });
+    if (isNew) {
+      await onAdd({
+        label,
+        field_type: fieldType,
+        required,
+        options: fieldType === "select" ? parseOptions(options) : null,
+      });
+    } else {
+      await onSave(field!.id, {
+        label,
+        field_type: fieldType,
+        required,
+        options: fieldType === "select" ? parseOptions(options) : null,
+      });
+    }
     setSaving(false);
-    setDirty(false);
-    setOpen(false);
   };
 
-  const handleDiscard = () => {
-    setLabel(field.label);
-    setFieldType(field.field_type);
-    setRequired(field.required);
-    setOptions(optionsToString(field.options));
-    setDirty(false);
-    setOpen(false);
-  };
-
-  const meta = TYPE_META[field.field_type];
+  const optList = parseOptions(options);
 
   return (
-    <div
-      className={`rounded-2xl border transition-all duration-150 bg-white ${
-        open
-          ? "border-brand-accent shadow-md"
-          : field.active
-          ? "border-gray-200 shadow-sm hover:border-gray-300"
-          : "border-gray-200 shadow-sm opacity-50"
-      }`}
-    >
-      {/* Collapsed header row */}
-      <div
-        className="flex items-center gap-3 px-5 py-4 cursor-pointer"
-        onClick={() => setOpen((o) => !o)}
-      >
-        {/* Reorder arrows */}
-        <div className="flex flex-col gap-0.5 shrink-0">
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onMove(index, -1);
-            }}
-            disabled={index === 0}
-            className="text-gray-300 hover:text-gray-500 disabled:opacity-20 leading-none text-[10px] px-1"
-            title="Move up"
-          >
-            {"\u25b2"}
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onMove(index, 1);
-            }}
-            disabled={index === total - 1}
-            className="text-gray-300 hover:text-gray-500 disabled:opacity-20 leading-none text-[10px] px-1"
-            title="Move down"
-          >
-            {"\u25bc"}
-          </button>
-        </div>
-
-        {/* Type icon */}
-        <span className="shrink-0 w-8 h-8 rounded-lg bg-gray-100 text-gray-500 text-sm font-bold flex items-center justify-center">
-          {meta.icon}
-        </span>
-
-        {/* Label + type */}
-        <div className="flex-1 min-w-0">
-          <p className="font-semibold text-gray-800 truncate leading-tight">{field.label}</p>
-          <p className="text-xs text-gray-400">{meta.label}</p>
-        </div>
-
-        {dirty && (
-          <span className="shrink-0 text-xs text-amber-500 font-semibold">Unsaved</span>
-        )}
-        {field.required && !dirty && (
-          <span className="shrink-0 text-xs text-brand-accent font-semibold">Required</span>
-        )}
-
-        {/* Active toggle */}
-        <div onClick={(e) => e.stopPropagation()}>
-          <Toggle checked={field.active} onChange={() => onToggleActive(field)} />
-        </div>
-
-        {/* Chevron */}
-        <span
-          className={`shrink-0 text-gray-400 transition-transform duration-200 text-sm ${
-            open ? "rotate-180" : ""
-          }`}
+    <div className="flex flex-col h-full border-l border-gray-200 bg-white">
+      {/* Header */}
+      <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
+        <h2 className="font-bold text-gray-800 text-sm uppercase tracking-widest">
+          {isNew ? "New field" : "Edit field"}
+        </h2>
+        <button
+          onClick={onCancel}
+          className="text-gray-400 hover:text-gray-600 text-xl leading-none transition"
+          aria-label="Close"
         >
-          {"\u25be"}
-        </span>
+          &times;
+        </button>
       </div>
 
-      {/* Expanded editor */}
-      {open && (
-        <div className="px-5 pb-5 space-y-4 border-t border-gray-100 pt-4">
-          {/* Label */}
+      {/* Scrollable body */}
+      <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
+        {/* Label input */}
+        <div>
+          <label className="form-label">
+            Question label <span className="text-red-500">*</span>
+          </label>
+          <input
+            ref={labelRef}
+            className="form-input"
+            value={label}
+            onChange={(e) => setLabel(e.target.value)}
+            placeholder="e.g. Preferred turnaround time"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) handleSubmit();
+            }}
+          />
+        </div>
+
+        {/* Type picker */}
+        <TypePicker value={fieldType} onChange={setFieldType} />
+
+        {/* Options (only for select) */}
+        {fieldType === "select" && (
           <div>
             <label className="form-label">
-              Question label <span className="text-red-500">*</span>
+              Options{" "}
+              <span className="text-gray-400 font-normal text-xs">(comma-separated)</span>
             </label>
             <input
-              ref={labelRef}
               className="form-input"
-              value={label}
-              onChange={(e) => setLabel(e.target.value)}
-              placeholder="e.g. Preferred turnaround time"
+              value={options}
+              onChange={(e) => setOptions(e.target.value)}
+              placeholder="Rush (3&#8211;5 days), Standard (1&#8211;2 weeks), Flexible"
             />
+            {optList && (
+              <div className="flex flex-wrap gap-1.5 mt-2">
+                {optList.map((o) => (
+                  <span
+                    key={o}
+                    className="text-xs bg-gray-100 text-gray-600 rounded-full px-2.5 py-0.5"
+                  >
+                    {o}
+                  </span>
+                ))}
+              </div>
+            )}
           </div>
+        )}
 
-          {/* Type */}
-          <TypePicker value={fieldType} onChange={setFieldType} />
+        {/* Required toggle */}
+        <label className="flex items-center gap-3 text-sm cursor-pointer select-none w-fit">
+          <Toggle checked={required} onChange={() => setRequired((r) => !r)} />
+          <span className="text-gray-700 font-medium">Required</span>
+        </label>
 
-          {/* Options for select */}
-          {fieldType === "select" && (
-            <div>
+        {/* Mini live preview inside the panel */}
+        <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-3">
+            Preview
+          </p>
+          {fieldType === "checkbox" ? (
+            <label className="flex items-center gap-2.5 text-sm pointer-events-none select-none">
+              <input type="checkbox" readOnly className="accent-brand-accent w-4 h-4" />
+              <span className="form-label !mb-0">
+                {label || <em className="text-gray-300 not-italic">Untitled</em>}
+                {required && <span className="text-red-500 ml-0.5">*</span>}
+              </span>
+            </label>
+          ) : (
+            <div className="pointer-events-none select-none">
               <label className="form-label">
-                Options{" "}
-                <span className="text-gray-400 font-normal text-xs">(comma-separated)</span>
+                {label || <em className="text-gray-300 not-italic">Untitled field</em>}
+                {required && <span className="text-red-500 ml-0.5">*</span>}
               </label>
-              <input
-                className="form-input"
-                value={options}
-                onChange={(e) => setOptions(e.target.value)}
-                placeholder="Rush (3\u20135 days), Standard (1\u20132 weeks), Flexible"
-              />
-              {parseOptions(options) && (
-                <div className="flex flex-wrap gap-1.5 mt-2">
-                  {parseOptions(options)!.map((o) => (
-                    <span
-                      key={o}
-                      className="text-xs bg-gray-100 text-gray-600 rounded-full px-2.5 py-0.5"
-                    >
-                      {o}
-                    </span>
-                  ))}
+              {fieldType === "textarea" && (
+                <div className="form-input min-h-[56px] text-gray-300 text-sm">
+                  Your answer here&hellip;
                 </div>
+              )}
+              {fieldType === "select" && (
+                <div className="form-input text-gray-400 flex items-center justify-between">
+                  <span>
+                    {parseOptions(options)?.[0] || "Select an option\u2026"}
+                  </span>
+                  <svg
+                    className="w-4 h-4 text-gray-400 shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M19 9l-7 7-7-7"
+                    />
+                  </svg>
+                </div>
+              )}
+              {fieldType === "number" && (
+                <div className="form-input text-gray-300">0</div>
+              )}
+              {fieldType === "text" && (
+                <div className="form-input text-gray-300">Your answer here&hellip;</div>
               )}
             </div>
           )}
-
-          {/* Required */}
-          <label className="flex items-center gap-2.5 text-sm cursor-pointer select-none w-fit">
-            <Toggle checked={required} onChange={() => setRequired((r) => !r)} />
-            <span className="text-gray-700 font-medium">Required</span>
-          </label>
-
-          {/* Live preview */}
-          <FieldPreview
-            field_type={fieldType}
-            label={label}
-            options={options}
-            required={required}
-          />
-
-          {/* Actions */}
-          <div className="flex items-center gap-3 pt-1">
-            <button
-              onClick={handleSave}
-              disabled={saving || !label.trim()}
-              className={`font-bold px-5 py-2 rounded-xl text-sm transition disabled:opacity-50 ${
-                dirty
-                  ? "bg-brand-accent text-white hover:bg-red-600"
-                  : "bg-gray-100 text-gray-400 cursor-not-allowed"
-              }`}
-            >
-              {saving ? "Saving\u2026" : dirty ? "Save changes" : "Saved \u2713"}
-            </button>
-            <button
-              onClick={handleDiscard}
-              className="text-sm text-gray-400 hover:text-gray-600"
-            >
-              {dirty ? "Discard" : "Close"}
-            </button>
-            <button
-              onClick={() => onDelete(field.id)}
-              className="ml-auto text-sm text-red-400 hover:text-red-600"
-            >
-              Delete field
-            </button>
-          </div>
         </div>
-      )}
-    </div>
-  );
-}
-
-function AddFieldPanel({
-  onAdd,
-}: {
-  onAdd: (f: Omit<CustomField, "id" | "sort_order" | "active">) => Promise<void>;
-}) {
-  const [label, setLabel] = useState("");
-  const [fieldType, setFieldType] = useState<FieldType>("text");
-  const [required, setRequired] = useState(false);
-  const [options, setOptions] = useState("");
-  const [saving, setSaving] = useState(false);
-  const labelRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    setTimeout(() => labelRef.current?.focus(), 50);
-  }, []);
-
-  const handleAdd = async () => {
-    if (!label.trim()) return;
-    setSaving(true);
-    await onAdd({
-      label,
-      field_type: fieldType,
-      required,
-      options: fieldType === "select" ? parseOptions(options) : null,
-    });
-    setSaving(false);
-    setLabel("");
-    setFieldType("text");
-    setRequired(false);
-    setOptions("");
-  };
-
-  return (
-    <div className="rounded-2xl border-2 border-dashed border-brand-accent/40 bg-white p-5 space-y-4">
-      <p className="text-xs font-bold uppercase tracking-widest text-brand-accent">New field</p>
-      <div>
-        <label className="form-label">
-          Question label <span className="text-red-500">*</span>
-        </label>
-        <input
-          ref={labelRef}
-          className="form-input"
-          value={label}
-          onChange={(e) => setLabel(e.target.value)}
-          placeholder="e.g. Preferred turnaround time"
-          onKeyDown={(e) => e.key === "Enter" && handleAdd()}
-        />
       </div>
-      <TypePicker value={fieldType} onChange={setFieldType} />
-      {fieldType === "select" && (
-        <div>
-          <label className="form-label">
-            Options{" "}
-            <span className="text-gray-400 font-normal text-xs">(comma-separated)</span>
-          </label>
-          <input
-            className="form-input"
-            value={options}
-            onChange={(e) => setOptions(e.target.value)}
-            placeholder="Option A, Option B, Option C"
-          />
-        </div>
-      )}
-      <label className="flex items-center gap-2.5 text-sm cursor-pointer select-none w-fit">
-        <Toggle checked={required} onChange={() => setRequired((r) => !r)} />
-        <span className="text-gray-700 font-medium">Required</span>
-      </label>
-      <FieldPreview
-        field_type={fieldType}
-        label={label}
-        options={options}
-        required={required}
-      />
-      <button
-        onClick={handleAdd}
-        disabled={saving || !label.trim()}
-        className="w-full bg-brand-accent text-white font-bold py-2.5 rounded-xl text-sm uppercase tracking-widest hover:bg-red-600 transition disabled:opacity-50"
-      >
-        {saving ? "Adding\u2026" : "Add field"}
-      </button>
+
+      {/* Footer actions */}
+      <div className="px-5 py-4 border-t border-gray-100 space-y-2 shrink-0">
+        <button
+          onClick={handleSubmit}
+          disabled={saving || !label.trim()}
+          className={`w-full font-bold py-2.5 rounded-xl text-sm uppercase tracking-widest transition disabled:opacity-50 ${
+            isNew || dirty
+              ? "bg-brand-accent text-white hover:bg-red-600"
+              : "bg-gray-100 text-gray-400 cursor-not-allowed"
+          }`}
+        >
+          {saving
+            ? "Saving\u2026"
+            : isNew
+            ? "Add field"
+            : dirty
+            ? "Save changes"
+            : "Saved \u2713"}
+        </button>
+
+        {!isNew && field != null && (
+          <button
+            onClick={() => onDelete(field.id)}
+            className="w-full text-sm text-red-400 hover:text-red-600 py-1.5 transition"
+          >
+            Delete this field
+          </button>
+        )}
+      </div>
     </div>
   );
 }
+
+// ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function FieldsPage() {
   const [fields, setFields] = useState<CustomField[]>([]);
-  const [showAdd, setShowAdd] = useState(false);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [addingNew, setAddingNew] = useState(false);
   const [error, setError] = useState("");
 
-  const load = () =>
-    fetch("/api/admin/fields")
+  const load = useCallback(() => {
+    return fetch("/api/admin/fields")
       .then((r) => r.json())
       .then((d) => setFields(Array.isArray(d) ? d : []));
+  }, []);
 
   useEffect(() => {
     load();
-  }, []);
+  }, [load]);
+
+  const selectedField = fields.find((f) => f.id === selectedId) ?? null;
+  const panelOpen = addingNew || selectedId !== null;
+
+  // ── CRUD handlers ────────────────────────────────────────────────────────
 
   const handleSave = async (id: string, patch: Partial<CustomField>) => {
     setError("");
@@ -456,8 +514,12 @@ export default function FieldsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...existing, ...patch }),
     });
-    if (!res.ok) setError("Failed to save field");
-    else load();
+    if (!res.ok) {
+      setError("Failed to save field.");
+    } else {
+      setSelectedId(null);
+      load();
+    }
   };
 
   const handleAdd = async (f: Omit<CustomField, "id" | "sort_order" | "active">) => {
@@ -467,9 +529,10 @@ export default function FieldsPage() {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(f),
     });
-    if (!res.ok) setError("Failed to add field");
-    else {
-      setShowAdd(false);
+    if (!res.ok) {
+      setError("Failed to add field.");
+    } else {
+      setAddingNew(false);
       load();
     }
   };
@@ -477,11 +540,19 @@ export default function FieldsPage() {
   const handleDelete = async (id: string) => {
     if (!confirm("Delete this field?")) return;
     await fetch(`/api/admin/fields/${id}`, { method: "DELETE" });
+    setSelectedId(null);
+    setAddingNew(false);
     load();
   };
 
-  const handleToggleActive = (field: CustomField) => {
-    handleSave(field.id, { active: !field.active });
+  const handleToggleActive = async (field: CustomField) => {
+    const existing = fields.find((f) => f.id === field.id)!;
+    await fetch(`/api/admin/fields/${field.id}`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...existing, active: !field.active }),
+    });
+    load();
   };
 
   const move = async (index: number, dir: -1 | 1) => {
@@ -503,62 +574,119 @@ export default function FieldsPage() {
     load();
   };
 
+  const closePanel = () => {
+    setSelectedId(null);
+    setAddingNew(false);
+  };
+
+  const openAdd = () => {
+    setSelectedId(null);
+    setAddingNew(true);
+  };
+
+  // ── Render ───────────────────────────────────────────────────────────────
+
   return (
-    <div className="max-w-2xl mx-auto px-4 py-10 space-y-4">
-      <div className="flex items-center justify-between mb-2">
-        <div>
-          <h1 className="text-2xl font-black uppercase tracking-widest text-brand">
-            Form Fields
-          </h1>
-          <p className="text-xs text-gray-400 mt-0.5">
-            {fields.length} field{fields.length !== 1 ? "s" : ""} &middot; click any field to
-            edit
-          </p>
+    <div className="flex items-start">
+      {/* ── LEFT: form preview ─────────────────────────────────────────── */}
+      <div className="flex-1 min-w-0 px-4 py-8">
+        <div className="max-w-xl mx-auto space-y-6">
+          {/* Page header */}
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-lg font-black uppercase tracking-widest text-brand">
+                Form Fields
+              </h1>
+              <p className="text-xs text-gray-400 mt-0.5">
+                {fields.filter((f) => f.active).length} active &middot;{" "}
+                {fields.filter((f) => !f.active).length} hidden
+              </p>
+            </div>
+            <button
+              onClick={openAdd}
+              className="bg-brand-accent text-white font-bold px-4 py-2 rounded-xl text-sm uppercase tracking-widest hover:bg-red-600 transition"
+            >
+              + Add Field
+            </button>
+          </div>
+
+          {error && (
+            <p className="text-red-500 text-sm bg-red-50 border border-red-200 rounded-lg px-4 py-3">
+              {error}
+            </p>
+          )}
+
+          {/* ── The form card — identical styling to the real quote form ── */}
+          <div className="bg-white rounded-2xl shadow-sm p-6 space-y-5">
+            <div>
+              <h2 className="section-heading">Additional Information</h2>
+              <p className="text-xs text-gray-400 -mt-3 mb-1">
+                This is exactly how your fields appear on the quote form.
+                Click a field to edit it.
+              </p>
+            </div>
+
+            {fields.length === 0 ? (
+              <div className="text-center py-12 border-2 border-dashed border-gray-200 rounded-xl text-gray-400">
+                <p className="text-3xl font-thin mb-2">+</p>
+                <p className="font-semibold text-gray-500">No custom fields yet</p>
+                <p className="text-sm mt-1">
+                  Click &ldquo;+ Add Field&rdquo; above to add questions to your quote form
+                </p>
+              </div>
+            ) : (
+              <div className="space-y-5 pt-1">
+                {fields.map((field, i) => (
+                  <FieldRenderer
+                    key={field.id}
+                    field={field}
+                    index={i}
+                    total={fields.length}
+                    selected={selectedId === field.id}
+                    onSelect={() => {
+                      setSelectedId(field.id);
+                      setAddingNew(false);
+                    }}
+                    onMove={(dir) => move(i, dir)}
+                    onToggleActive={() => handleToggleActive(field)}
+                    onDelete={() => handleDelete(field.id)}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Bottom add-field button */}
+            <button
+              onClick={openAdd}
+              className="w-full border-2 border-dashed border-gray-200 rounded-xl py-3 text-sm font-semibold text-gray-400 hover:border-brand-accent hover:text-brand-accent transition"
+            >
+              + Add a field
+            </button>
+          </div>
         </div>
-        <button
-          onClick={() => setShowAdd((s) => !s)}
-          className={`font-bold px-4 py-2 rounded-xl text-sm uppercase tracking-widest transition ${
-            showAdd
-              ? "bg-gray-200 text-gray-600 hover:bg-gray-300"
-              : "bg-brand-accent text-white hover:bg-red-600"
-          }`}
-        >
-          {showAdd ? "Cancel" : "+ Add Field"}
-        </button>
       </div>
 
-      {error && (
-        <p className="text-red-500 text-sm bg-red-50 border border-red-200 rounded-lg px-4 py-3">
-          {error}
-        </p>
-      )}
-
-      {showAdd && <AddFieldPanel onAdd={handleAdd} />}
-
-      {fields.length === 0 && !showAdd ? (
-        <div className="text-center py-16 text-gray-400">
-          <p className="text-5xl mb-3 font-thin">+</p>
-          <p className="font-semibold text-gray-500">No custom fields yet</p>
-          <p className="text-sm mt-1">
-            Click &ldquo;+ Add Field&rdquo; to add questions to your quote form
-          </p>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {fields.map((field, i) => (
-            <FieldCard
-              key={field.id}
-              field={field}
-              index={i}
-              total={fields.length}
+      {/* ── RIGHT: sticky editor panel ─────────────────────────────────── */}
+      <div
+        className={`shrink-0 overflow-hidden transition-all duration-300 ${
+          panelOpen ? "w-[340px]" : "w-0"
+        }`}
+      >
+        <div
+          className="w-[340px] sticky top-[57px] h-[calc(100vh-57px)] flex flex-col"
+        >
+          {panelOpen && (
+            <EditorPanel
+              field={addingNew ? null : selectedField}
+              isNew={addingNew}
               onSave={handleSave}
+              onAdd={handleAdd}
+              onCancel={closePanel}
               onDelete={handleDelete}
-              onMove={move}
-              onToggleActive={handleToggleActive}
             />
-          ))}
+          )}
         </div>
-      )}
+      </div>
     </div>
   );
 }
