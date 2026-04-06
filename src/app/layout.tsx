@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
-import { getSupabaseAdmin } from "@/lib/supabase";
+import { createSupabaseAdmin } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 
@@ -25,7 +25,7 @@ export default async function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  const supabase = getSupabaseAdmin();
+  const supabase = createSupabaseAdmin();
   const { data: settings } = await supabase
     .from("site_settings")
     .select("*")

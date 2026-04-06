@@ -1,6 +1,6 @@
 import QuoteForm from "@/components/QuoteForm";
 import type { CustomField } from "@/components/QuoteForm";
-import { getSupabaseAdmin } from "@/lib/supabase";
+import { createSupabaseAdmin } from "@/lib/supabase";
 import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
@@ -11,7 +11,7 @@ export default async function UserFormPage({
   params: { userId: string };
 }) {
   const { userId } = params;
-  const supabase = getSupabaseAdmin();
+  const supabase = createSupabaseAdmin();
 
   // Fetch this user's active fields
   const { data: fields, error } = await supabase

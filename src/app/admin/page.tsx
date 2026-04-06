@@ -1,4 +1,4 @@
-import { getSupabaseAdmin } from "@/lib/supabase";
+import { createSupabaseAdmin } from "@/lib/supabase";
 import { getSessionUser } from "@/lib/supabase-server";
 
 export const dynamic = "force-dynamic";
@@ -109,7 +109,7 @@ function QuoteCard({
 export default async function AdminPage() {
   const [user, supabase] = await Promise.all([
     getSessionUser(),
-    Promise.resolve(getSupabaseAdmin()),
+    Promise.resolve(createSupabaseAdmin()),
   ]);
 
   // Fetch this user's field definitions to build a label map

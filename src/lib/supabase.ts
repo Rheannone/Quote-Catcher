@@ -13,6 +13,17 @@ export function getSupabaseAdmin(): SupabaseClient {
   return _admin;
 }
 
+/**
+ * Creates a FRESH (non-singleton) admin client for use in server components
+ * and pages where the module-singleton may be stale across serverless invocations.
+ */
+export function createSupabaseAdmin(): SupabaseClient {
+  return createClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    process.env.SUPABASE_SERVICE_ROLE_KEY!
+  );
+}
+
 // Browser-safe client (anon key only)
 let _client: SupabaseClient | null = null;
 export function getSupabaseClient(): SupabaseClient {
@@ -24,3 +35,4 @@ export function getSupabaseClient(): SupabaseClient {
   }
   return _client;
 }
+
