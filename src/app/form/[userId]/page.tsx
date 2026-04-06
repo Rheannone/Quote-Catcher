@@ -27,12 +27,20 @@ export default async function UserFormPage({
     notFound();
   }
 
-  // Fetch this user's brand settings
-  const { data: settings } = await supabase
+  // Fetch this user's brand settings — try user-scoped first, fall back to any row (legacy)
+  let { data: settings } = await supabase
     .from("site_settings")
     .select("*")
     .eq("user_id", userId)
     .maybeSingle();
+
+  if (!settings) {
+    const { data: fallback } = await supabase
+      .from("site_settings")
+      .select("*")
+      .maybeSingle();
+    settings = fallback;
+  }
 
   const brandColor  = settings?.brand_color  ?? "#1a1a2e";
   const accentColor = settings?.accent_color ?? "#e63946";
@@ -45,7 +53,10 @@ export default async function UserFormPage({
   } as React.CSSProperties;
 
   return (
-    <div style={cssVars} className="min-h-screen flex flex-col">
+    <div
+      style={{ ...cssVars, fontFamily: "'Inter', -apple-system, sans-serif" }}
+      className="min-h-screen flex flex-col"
+    >
       {/* Branded header */}
       <header className="bg-brand text-white py-5 px-6 shadow-md">
         <div className="max-w-3xl mx-auto flex items-center gap-3">
