@@ -30,7 +30,7 @@ export default async function RootLayout({
   const { data: settings } = await supabase
     .from("site_settings")
     .select("*")
-    .single();
+    .maybeSingle();
 
   const brandColor = settings?.brand_color ?? "#1a1a2e";
   const accentColor = settings?.accent_color ?? "#e94560";

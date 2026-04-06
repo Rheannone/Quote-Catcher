@@ -1,46 +1,140 @@
 import { getSupabaseAdmin } from "@/lib/supabase";
+import { getSessionUser } from "@/lib/supabase-server";
 
-// Always render at request time (requires Supabase at runtime, not build time)
 export const dynamic = "force-dynamic";
 
 type Quote = {
   id: string;
   created_at: string;
-  first_name: string;
-  last_name: string;
-  company: string;
-  email: string;
-  phone: string;
-  project_description: string;
-  deadline: string | null;
-  fulfillment: string;
-  what_printing: string;
-  quantity: number;
-  print_locations: string[];
-  colors_front: string;
-  colors_back: string;
-  colors_left_sleeve: string;
-  colors_right_sleeve: string;
-  apparel_brand: string;
-  has_artwork: string;
-  additional_details: string;
   custom_fields_data: Record<string, unknown> | null;
+  // Legacy named columns (populated by old form submissions)
+  first_name: string | null;
+  last_name: string | null;
+  email: string | null;
+  phone: string | null;
+  fulfillment: string | null;
+  what_printing: string | null;
+  quantity: number | null;
+  project_description: string | null;
 };
 
-function Badge({ text }: { text: string }) {
+type FieldDef = {
+  id: string;
+  field_key: string | null;
+  label: string;
+};
+
+function Info({ label, value }: { label: string; value: string }) {
   return (
-    <span className="inline-block bg-brand/10 text-brand text-xs font-semibold px-2 py-0.5 rounded-full">
-      {text}
-    </span>
+    <div>
+      <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{label}</p>
+      <p className="text-sm text-gray-800 font-medium mt-0.5">{value || "—"}</p>
+    </div>
+  );
+}
+
+function QuoteCard({
+  quote,
+  labelMap,
+}: {
+  quote: Quote;
+  labelMap: Record<string, string>;
+}) {
+  const data = quote.custom_fields_data;
+  const isDynamic = data && Object.keys(data).length > 0;
+
+  // Build a display label for a raw key
+  const getLabel = (key: string) => labelMap[key] ?? key;
+
+  // Title: prefer from dynamic data, fall back to legacy columns
+  const firstName = isDynamic
+    ? String(data.firstName ?? data.first_name ?? quote.first_name ?? "")
+    : (quote.first_name ?? "");
+  const lastName = isDynamic
+    ? String(data.lastName ?? data.last_name ?? quote.last_name ?? "")
+    : (quote.last_name ?? "");
+  const email = isDynamic
+    ? String(data.email ?? quote.email ?? "")
+    : (quote.email ?? "");
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-2 mb-5">
+        <div>
+          <span className="font-bold text-lg text-brand">
+            {firstName || lastName ? `${firstName} ${lastName}`.trim() : "Anonymous"}
+          </span>
+          {email && (
+            <a href={`mailto:${email}`} className="block text-sm text-gray-400 hover:text-brand-accent mt-0.5">
+              {email}
+            </a>
+          )}
+        </div>
+        <span className="text-xs text-gray-400 shrink-0">
+          {new Date(quote.created_at).toLocaleString()}
+        </span>
+      </div>
+
+      {isDynamic ? (
+        // ── New dynamic format ──────────────────────────────────────────────
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          {Object.entries(data).map(([key, val]) => {
+            if (val === null || val === undefined || val === "") return null;
+            const display = Array.isArray(val) ? val.join(", ") : String(val);
+            return <Info key={key} label={getLabel(key)} value={display} />;
+          })}
+        </div>
+      ) : (
+        // ── Legacy format ───────────────────────────────────────────────────
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+            {quote.phone && <Info label="Phone" value={quote.phone} />}
+            {quote.fulfillment && <Info label="Fulfillment" value={quote.fulfillment} />}
+            {quote.what_printing && <Info label="Printing" value={quote.what_printing} />}
+            {quote.quantity != null && <Info label="Quantity" value={String(quote.quantity)} />}
+          </div>
+          {quote.project_description && (
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-1">Project</p>
+              <p className="text-sm text-gray-700 whitespace-pre-wrap">{quote.project_description}</p>
+            </div>
+          )}
+        </div>
+      )}
+    </div>
   );
 }
 
 export default async function AdminPage() {
-  const supabase = getSupabaseAdmin();
-  const { data: quotes, error } = await supabase
+  const [user, supabase] = await Promise.all([
+    getSessionUser(),
+    Promise.resolve(getSupabaseAdmin()),
+  ]);
+
+  // Fetch this user's field definitions to build a label map
+  const labelMap: Record<string, string> = {};
+  if (user) {
+    const { data: fieldDefs } = await supabase
+      .from("custom_fields")
+      .select("id, field_key, label")
+      .eq("user_id", user.id);
+
+    for (const f of (fieldDefs ?? []) as FieldDef[]) {
+      labelMap[f.id] = f.label;
+      if (f.field_key) labelMap[f.field_key] = f.label;
+    }
+  }
+
+  // Fetch quotes — scoped to this user if they have any, otherwise all
+  const query = supabase
     .from("quotes")
     .select("*")
     .order("created_at", { ascending: false });
+
+  if (user) query.or(`owner_user_id.eq.${user.id},owner_user_id.is.null`);
+
+  const { data: quotes, error } = await query;
 
   if (error) {
     return (
@@ -51,136 +145,24 @@ export default async function AdminPage() {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 py-10">
+    <div className="max-w-4xl mx-auto px-4 py-10">
       <h1 className="text-2xl font-black uppercase tracking-widest text-brand mb-6">
         Quote Submissions ({quotes?.length ?? 0})
       </h1>
 
       {!quotes || quotes.length === 0 ? (
-        <p className="text-gray-400">No submissions yet.</p>
+        <div className="text-center py-16 text-gray-400">
+          <p className="text-5xl mb-3">📬</p>
+          <p className="font-semibold text-gray-500">No submissions yet</p>
+          <p className="text-sm mt-1">Share your form link and submissions will appear here</p>
+        </div>
       ) : (
-        <div className="space-y-6">
+        <div className="space-y-5">
           {(quotes as Quote[]).map((q) => (
-            <div
-              key={q.id}
-              className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6"
-            >
-              {/* Header */}
-              <div className="flex flex-wrap items-center justify-between gap-2 mb-4">
-                <div>
-                  <span className="font-bold text-lg text-brand">
-                    {q.first_name} {q.last_name}
-                  </span>
-                  {q.company && (
-                    <span className="text-gray-400 text-sm ml-2">
-                      — {q.company}
-                    </span>
-                  )}
-                </div>
-                <span className="text-xs text-gray-400">
-                  {new Date(q.created_at).toLocaleString()}
-                </span>
-              </div>
-
-              {/* Contact */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm mb-4">
-                <Info label="Email" value={q.email} />
-                <Info label="Phone" value={q.phone} />
-                <Info label="Fulfillment" value={q.fulfillment} />
-                {q.deadline && <Info label="Deadline" value={q.deadline} />}
-              </div>
-
-              {/* Project */}
-              <div className="mb-4">
-                <p className="text-xs font-semibold text-gray-400 uppercase mb-1">
-                  Project Description
-                </p>
-                <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                  {q.project_description}
-                </p>
-              </div>
-
-              {/* Print */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm mb-4">
-                <Info label="Printing" value={q.what_printing} />
-                <Info label="Quantity" value={String(q.quantity)} />
-                <Info label="Apparel Brand" value={q.apparel_brand} />
-                <Info label="Has Artwork" value={q.has_artwork} />
-              </div>
-
-              {/* Locations */}
-              {q.print_locations?.length > 0 && (
-                <div className="mb-4">
-                  <p className="text-xs font-semibold text-gray-400 uppercase mb-1">
-                    Print Locations
-                  </p>
-                  <div className="flex flex-wrap gap-2">
-                    {q.print_locations.map((loc: string) => (
-                      <Badge key={loc} text={loc} />
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Color counts */}
-              <div className="flex flex-wrap gap-4 text-sm mb-4">
-                {q.colors_front && (
-                  <Info label="Front Colors" value={q.colors_front} />
-                )}
-                {q.colors_back && (
-                  <Info label="Back Colors" value={q.colors_back} />
-                )}
-                {q.colors_left_sleeve && (
-                  <Info label="L.Sleeve Colors" value={q.colors_left_sleeve} />
-                )}
-                {q.colors_right_sleeve && (
-                  <Info label="R.Sleeve Colors" value={q.colors_right_sleeve} />
-                )}
-              </div>
-
-              {q.additional_details && (
-                <div>
-                  <p className="text-xs font-semibold text-gray-400 uppercase mb-1">
-                    Additional Notes
-                  </p>
-                  <p className="text-sm text-gray-700 whitespace-pre-wrap">
-                    {q.additional_details}
-                  </p>
-                </div>
-              )}
-
-              {q.custom_fields_data &&
-                Object.keys(q.custom_fields_data).length > 0 && (
-                  <div className="mt-4 border-t border-gray-100 pt-4">
-                    <p className="text-xs font-semibold text-gray-400 uppercase mb-2">
-                      Custom Fields
-                    </p>
-                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 text-sm">
-                      {Object.entries(q.custom_fields_data).map(
-                        ([key, val]) => (
-                          <Info
-                            key={key}
-                            label={key}
-                            value={String(val ?? "")}
-                          />
-                        )
-                      )}
-                    </div>
-                  </div>
-                )}
-            </div>
+            <QuoteCard key={q.id} quote={q} labelMap={labelMap} />
           ))}
         </div>
       )}
-    </div>
-  );
-}
-
-function Info({ label, value }: { label: string; value: string }) {
-  return (
-    <div>
-      <p className="text-xs font-semibold text-gray-400 uppercase">{label}</p>
-      <p className="text-gray-800 font-medium">{value || "—"}</p>
     </div>
   );
 }

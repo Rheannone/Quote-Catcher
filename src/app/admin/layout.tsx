@@ -30,6 +30,19 @@ export default async function AdminLayout({
           {/* Spacer */}
           <div className="flex-1" />
 
+          {/* Form link */}
+          {user && (
+            <a
+              href={`/form/${user.id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-4 py-4 text-xs font-semibold text-brand-accent hover:text-red-600 transition hidden sm:block"
+              title="Open your public form"
+            >
+              View Form ↗
+            </a>
+          )}
+
           {/* User info + sign out */}
           {user && (
             <div className="flex items-center gap-3 py-3">
