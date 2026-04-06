@@ -13,26 +13,35 @@ export async function POST(req: NextRequest) {
         formOwnerId: string;
       };
 
+      // Best-effort: find email value anywhere in fieldData (key might vary)
+      const emailValue =
+        (fieldData.email as string) ??
+        (fieldData.emailAddress as string) ??
+        Object.values(fieldData).find(
+          (v) => typeof v === "string" && v.includes("@")
+        ) as string | undefined ??
+        null;
+
       const { error } = await supabase.from("quotes").insert([
         {
           // Populate named columns for backwards compat / admin view
-          first_name:          fieldData.firstName    as string ?? null,
-          last_name:           fieldData.lastName     as string ?? null,
-          company:             fieldData.company      as string ?? null,
-          email:               fieldData.email        as string ?? null,
-          phone:               fieldData.phone        as string ?? null,
-          website:             fieldData.website      as string ?? null,
-          project_description: fieldData.projectDescription as string ?? null,
-          deadline:            (fieldData.deadline as string) || null,
-          fulfillment:         fieldData.fulfillment  as string ?? null,
-          what_printing:       fieldData.whatPrinting as string ?? null,
+          first_name:          (fieldData.firstName    as string) ?? null,
+          last_name:           (fieldData.lastName     as string) ?? null,
+          company:             (fieldData.company      as string) ?? null,
+          email:               emailValue,
+          phone:               (fieldData.phone        as string) ?? null,
+          website:             (fieldData.website      as string) ?? null,
+          project_description: (fieldData.projectDescription as string) ?? null,
+          deadline:            (fieldData.deadline as string)     || null,
+          fulfillment:         (fieldData.fulfillment  as string) ?? null,
+          what_printing:       (fieldData.whatPrinting as string) ?? null,
           quantity:            fieldData.quantity ? Number(fieldData.quantity) : null,
           print_locations:     Array.isArray(fieldData.printLocations)
                                  ? fieldData.printLocations
                                  : fieldData.printLocations ? [fieldData.printLocations] : null,
-          apparel_brand:       fieldData.apparelBrand     as string ?? null,
-          has_artwork:         fieldData.hasArtwork       as string ?? null,
-          additional_details:  fieldData.additionalDetails as string ?? null,
+          apparel_brand:       (fieldData.apparelBrand     as string) ?? null,
+          has_artwork:         (fieldData.hasArtwork       as string) ?? null,
+          additional_details:  (fieldData.additionalDetails as string) ?? null,
           // Full blob + owner
           custom_fields_data:  fieldData,
           owner_user_id:       formOwnerId ?? null,
