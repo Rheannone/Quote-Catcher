@@ -5,8 +5,8 @@ import { createSupabaseAdmin } from "@/lib/supabase";
 export const dynamic = "force-dynamic";
 
 export const metadata: Metadata = {
-  title: "QuoteCatcher",
-  description: "A custom quote form builder for small businesses.",
+  title: "Latziyela Prints",
+  description: "Request a custom screen printing quote.",
 };
 
 const FONT_WEIGHTS: Record<string, string> = {

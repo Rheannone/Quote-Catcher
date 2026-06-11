@@ -39,6 +39,10 @@ export async function POST(req: NextRequest) {
   if (body.accent_color !== undefined) patch.accent_color = body.accent_color;
   if (body.font_family !== undefined) patch.font_family = body.font_family;
   if (body.logo_url !== undefined) patch.logo_url = body.logo_url;
+  if (body.business_name !== undefined) patch.business_name = body.business_name;
+  if (body.instagram_url !== undefined) patch.instagram_url = body.instagram_url;
+  if (body.contact_email !== undefined) patch.contact_email = body.contact_email;
+  if (body.contact_phone !== undefined) patch.contact_phone = body.contact_phone;
 
   // Look for an existing row: this user's row, or a legacy row with null user_id
   const { data: existing } = await supabase

@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import { useRouter } from "next/navigation";
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 type FieldType =
   | "text" | "email" | "tel" | "url" | "date"
   | "number" | "textarea" | "select" | "radio"
-  | "checkbox" | "checkbox_group";
+  | "checkbox" | "checkbox_group" | "print_item";
 
 type CustomField = {
   id: string;
@@ -34,17 +35,18 @@ const SECTION_LABELS: Record<string, string> = {
 };
 
 const TYPE_META: Record<FieldType, { label: string; icon: string; hint: string }> = {
-  text:          { label: "Short text",  icon: "Aa", hint: "Single-line text" },
-  textarea:      { label: "Long text",   icon: "\u00b6",  hint: "Multi-line text area" },
-  email:         { label: "Email",       icon: "@",  hint: "Email address" },
-  tel:           { label: "Phone",       icon: "\u260e",  hint: "Phone number" },
-  url:           { label: "Website",     icon: "\u2197",  hint: "URL / web address" },
-  date:          { label: "Date",        icon: "\u25a1\u2666", hint: "Date picker" },
-  number:        { label: "Number",      icon: "#",  hint: "Numeric input" },
-  select:        { label: "Dropdown",    icon: "\u25be",  hint: "Pick one option" },
-  radio:         { label: "Radio",       icon: "\u25ce",  hint: "Pick one (visible list)" },
-  checkbox:      { label: "Checkbox",    icon: "\u2611",  hint: "Single yes / no" },
-  checkbox_group:{ label: "Multi-check", icon: "\u2610\u2611", hint: "Pick multiple options" },
+  text:          { label: "Short text",   icon: "Aa", hint: "Single-line text" },
+  textarea:      { label: "Long text",    icon: "\u00b6",  hint: "Multi-line text area" },
+  email:         { label: "Email",        icon: "@",  hint: "Email address" },
+  tel:           { label: "Phone",        icon: "\u260e",  hint: "Phone number" },
+  url:           { label: "Website",      icon: "\u2197",  hint: "URL / web address" },
+  date:          { label: "Date",         icon: "\u25a1\u2666", hint: "Date picker" },
+  number:        { label: "Number",       icon: "#",  hint: "Numeric input" },
+  select:        { label: "Dropdown",     icon: "\u25be",  hint: "Pick one option" },
+  radio:         { label: "Radio",        icon: "\u25ce",  hint: "Pick one (visible list)" },
+  checkbox:      { label: "Checkbox",     icon: "\u2611",  hint: "Single yes / no" },
+  checkbox_group:{ label: "Multi-check",  icon: "\u2610\u2611", hint: "Pick multiple options" },
+  print_item:    { label: "Print Item",   icon: "\u229e",  hint: "What to print + optional detail expander" },
 };
 
 const BUILTIN_SECTIONS = [
@@ -53,6 +55,11 @@ const BUILTIN_SECTIONS = [
   { key: "print",      label: "Print Specifications" },
   { key: "additional", label: "Additional Information" },
 ];
+
+const FONT_OPTIONS = [
+  "Inter", "Montserrat", "Oswald", "Raleway",
+  "Roboto", "Playfair Display", "Bebas Neue", "Poppins",
+] as const;
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -144,7 +151,6 @@ function SectionPicker({
 }
 
 // ── FieldPreview ──────────────────────────────────────────────────────────────
-// Renders a field exactly as it appears on the live public form.
 
 function FieldPreview({
   field_type,
@@ -166,6 +172,19 @@ function FieldPreview({
   const inputDiv = (
     <div className="form-input text-gray-300 text-sm">{ph}</div>
   );
+
+  if (field_type === "print_item") {
+    return (
+      <div className="pointer-events-none select-none space-y-2">
+        <label className="form-label">
+          {displayLabel}
+          {required && <span className="text-red-500 ml-0.5">*</span>}
+        </label>
+        <div className="form-input text-gray-300 text-sm">e.g. Hoodies, T-Shirts&hellip;</div>
+        <div className="text-xs font-semibold text-brand-accent">+ Add print details (optional)</div>
+      </div>
+    );
+  }
 
   if (field_type === "checkbox") {
     return (
@@ -222,7 +241,6 @@ function FieldPreview({
 }
 
 // ── FieldRenderer ─────────────────────────────────────────────────────────────
-// A clickable field card with hover toolbar in the WYSIWYG left panel.
 
 function FieldRenderer({
   field,
@@ -259,7 +277,6 @@ function FieldRenderer({
       onMouseLeave={() => setHovered(false)}
       onClick={onSelect}
     >
-      {/* Floating toolbar */}
       {showToolbar && (
         <div
           className="absolute -top-4 right-0 z-20 flex items-center gap-0.5 bg-white border border-gray-200 rounded-lg shadow-lg px-1.5 py-1"
@@ -286,7 +303,6 @@ function FieldRenderer({
         </div>
       )}
 
-      {/* Field rendered exactly like the public form */}
       <FieldPreview
         field_type={field.field_type}
         label={field.label}
@@ -319,13 +335,13 @@ function EditorPanel({
   onCancel: () => void;
   onDelete: (id: string) => void;
 }) {
-  const [label, setLabel]           = useState(field?.label ?? "");
-  const [fieldType, setFieldType]   = useState<FieldType>(field?.field_type ?? "text");
-  const [required, setRequired]     = useState(field?.required ?? false);
-  const [options, setOptions]       = useState(optionsToString(field?.options ?? null));
-  const [section, setSection]       = useState(field?.section ?? defaultSection);
+  const [label, setLabel]             = useState(field?.label ?? "");
+  const [fieldType, setFieldType]     = useState<FieldType>(field?.field_type ?? "text");
+  const [required, setRequired]       = useState(field?.required ?? false);
+  const [options, setOptions]         = useState(optionsToString(field?.options ?? null));
+  const [section, setSection]         = useState(field?.section ?? defaultSection);
   const [placeholder, setPlaceholder] = useState(field?.placeholder ?? "");
-  const [saving, setSaving]         = useState(false);
+  const [saving, setSaving]           = useState(false);
   const labelRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -373,7 +389,7 @@ function EditorPanel({
   const optList = parseOptions(options);
 
   return (
-    <div className="flex flex-col h-full border-l border-gray-200 bg-white">
+    <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100 shrink-0">
         <h2 className="font-bold text-gray-800 text-sm uppercase tracking-widest">
@@ -386,7 +402,6 @@ function EditorPanel({
 
       {/* Scrollable form */}
       <div className="flex-1 overflow-y-auto px-5 py-5 space-y-5">
-        {/* Label */}
         <div>
           <label className="form-label">Question label <span className="text-red-500">*</span></label>
           <input
@@ -399,7 +414,6 @@ function EditorPanel({
           />
         </div>
 
-        {/* Placeholder */}
         <div>
           <label className="form-label">Placeholder / hint text</label>
           <input
@@ -410,10 +424,8 @@ function EditorPanel({
           />
         </div>
 
-        {/* Type picker */}
         <TypePicker value={fieldType} onChange={setFieldType} />
 
-        {/* Options */}
         {needsOptions && (
           <div>
             <label className="form-label">
@@ -435,16 +447,13 @@ function EditorPanel({
           </div>
         )}
 
-        {/* Section */}
         <SectionPicker value={section} onChange={setSection} extraSections={extraSections} />
 
-        {/* Required */}
         <label className="flex items-center gap-3 text-sm cursor-pointer select-none w-fit">
           <Toggle checked={required} onChange={() => setRequired((r) => !r)} />
           <span className="text-gray-700 font-medium">Required</span>
         </label>
 
-        {/* Live preview in panel */}
         <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 p-4">
           <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400 mb-3">Preview</p>
           <FieldPreview
@@ -481,15 +490,186 @@ function EditorPanel({
   );
 }
 
+// ── ThemePanel ────────────────────────────────────────────────────────────────
+
+function ThemePanel({
+  brandColor, setBrandColor,
+  accentColor, setAccentColor,
+  fontFamily, setFontFamily,
+  logoUrl, setLogoUrl,
+  businessName, setBusinessName,
+  instagramUrl, setInstagramUrl,
+  contactEmail, setContactEmail,
+  contactPhone, setContactPhone,
+  saving, saved, error, uploading,
+  logoRef,
+  onSave,
+  onLogoUpload,
+}: {
+  brandColor: string; setBrandColor: (v: string) => void;
+  accentColor: string; setAccentColor: (v: string) => void;
+  fontFamily: string; setFontFamily: (v: string) => void;
+  logoUrl: string | null; setLogoUrl: (v: string | null) => void;
+  businessName: string; setBusinessName: (v: string) => void;
+  instagramUrl: string; setInstagramUrl: (v: string) => void;
+  contactEmail: string; setContactEmail: (v: string) => void;
+  contactPhone: string; setContactPhone: (v: string) => void;
+  saving: boolean; saved: boolean; error: string; uploading: boolean;
+  logoRef: React.RefObject<HTMLInputElement>;
+  onSave: () => void;
+  onLogoUpload: (e: React.ChangeEvent<HTMLInputElement>) => void;
+}) {
+  return (
+    <div className="flex flex-col h-full">
+      <div className="px-5 py-4 border-b border-gray-100 shrink-0">
+        <h2 className="font-bold text-gray-800 text-sm uppercase tracking-widest">Theme</h2>
+      </div>
+
+      <div className="flex-1 overflow-y-auto px-5 py-5 space-y-6">
+
+        {/* Business Info */}
+        <div className="space-y-3">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Business Info</p>
+          <div>
+            <label className="form-label">Business Name</label>
+            <input type="text" className="form-input" value={businessName}
+              onChange={(e) => setBusinessName(e.target.value)} placeholder="Latziyela Prints" />
+          </div>
+          <div>
+            <label className="form-label">Instagram URL</label>
+            <input type="url" className="form-input" value={instagramUrl}
+              onChange={(e) => setInstagramUrl(e.target.value)}
+              placeholder="https://www.instagram.com/latziyela_prints/" />
+          </div>
+          <div>
+            <label className="form-label">Contact Email</label>
+            <input type="email" className="form-input" value={contactEmail}
+              onChange={(e) => setContactEmail(e.target.value)} placeholder="hello@latziyela.com" />
+          </div>
+          <div>
+            <label className="form-label">Contact Phone</label>
+            <input type="tel" className="form-input" value={contactPhone}
+              onChange={(e) => setContactPhone(e.target.value)} placeholder="(555) 000-0000" />
+          </div>
+        </div>
+
+        {/* Colors */}
+        <div className="space-y-3">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Brand Colors</p>
+          <div>
+            <label className="form-label">Primary</label>
+            <div className="flex items-center gap-2">
+              <input type="color" value={brandColor} onChange={(e) => setBrandColor(e.target.value)}
+                className="w-10 h-9 rounded cursor-pointer border border-gray-300" />
+              <input type="text" value={brandColor} onChange={(e) => setBrandColor(e.target.value)}
+                className="form-input font-mono text-sm" />
+            </div>
+          </div>
+          <div>
+            <label className="form-label">Accent</label>
+            <div className="flex items-center gap-2">
+              <input type="color" value={accentColor} onChange={(e) => setAccentColor(e.target.value)}
+                className="w-10 h-9 rounded cursor-pointer border border-gray-300" />
+              <input type="text" value={accentColor} onChange={(e) => setAccentColor(e.target.value)}
+                className="form-input font-mono text-sm" />
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <div className="rounded-lg px-3 py-1.5 text-white text-xs font-bold" style={{ backgroundColor: brandColor }}>Primary</div>
+            <div className="rounded-lg px-3 py-1.5 text-white text-xs font-bold" style={{ backgroundColor: accentColor }}>Accent</div>
+          </div>
+        </div>
+
+        {/* Font */}
+        <div className="space-y-3">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Font</p>
+          <div className="grid grid-cols-2 gap-1.5">
+            {FONT_OPTIONS.map((font) => (
+              <button
+                key={font}
+                onClick={() => setFontFamily(font)}
+                className={`border rounded-lg px-2 py-2 text-xs transition text-left truncate ${
+                  fontFamily === font
+                    ? "border-brand-accent bg-brand-accent/5 text-brand-accent font-semibold"
+                    : "border-gray-200 hover:border-gray-400 text-gray-600"
+                }`}
+                style={{ fontFamily: font }}
+              >
+                {font}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* Logo */}
+        <div className="space-y-3">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Logo</p>
+          {logoUrl && (
+            <div className="flex items-center gap-3">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src={logoUrl} alt="Logo" className="h-10 w-10 object-contain rounded border border-gray-200 bg-gray-50 p-0.5" />
+              <button onClick={() => setLogoUrl(null)} className="text-red-400 text-xs hover:underline">Remove</button>
+            </div>
+          )}
+          <input ref={logoRef} type="file" accept="image/*" className="hidden" onChange={onLogoUpload} />
+          <button
+            onClick={() => logoRef.current?.click()}
+            disabled={uploading}
+            className="border border-gray-300 rounded-lg px-3 py-2 text-xs hover:border-gray-500 transition disabled:opacity-50 w-full text-left"
+          >
+            {uploading ? "Uploading…" : logoUrl ? "Replace logo" : "Upload logo"}
+          </button>
+          <p className="text-[10px] text-gray-400">PNG or SVG recommended. Replaces business name in header.</p>
+        </div>
+
+        {error && (
+          <p className="text-red-500 text-xs bg-red-50 border border-red-200 rounded-lg px-3 py-2">{error}</p>
+        )}
+      </div>
+
+      <div className="px-5 py-4 border-t border-gray-100 shrink-0">
+        <button
+          onClick={onSave}
+          disabled={saving}
+          className="w-full bg-brand-accent hover:bg-red-600 text-white font-bold py-2.5 rounded-xl text-sm uppercase tracking-widest transition disabled:opacity-60"
+        >
+          {saved ? "Saved ✓" : saving ? "Saving…" : "Save Theme"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function FieldsPage() {
-  const [fields, setFields]       = useState<CustomField[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [addingNew, setAddingNew] = useState(false);
+  const router = useRouter();
+
+  // Fields state
+  const [fields, setFields]           = useState<CustomField[]>([]);
+  const [selectedId, setSelectedId]   = useState<string | null>(null);
+  const [addingNew, setAddingNew]     = useState(false);
   const [newFieldSection, setNewFieldSection] = useState("additional");
-  const [seeding, setSeeding]     = useState(false);
-  const [error, setError]         = useState("");
+  const [seeding, setSeeding]         = useState(false);
+  const [error, setError]             = useState("");
+
+  // Panel tab: "field" | "theme"
+  const [panelTab, setPanelTab] = useState<"field" | "theme">("field");
+
+  // Theme / appearance state
+  const [brandColor, setBrandColor]     = useState("#1a1a2e");
+  const [accentColor, setAccentColor]   = useState("#e94560");
+  const [fontFamily, setFontFamily]     = useState("Inter");
+  const [logoUrl, setLogoUrl]           = useState<string | null>(null);
+  const [businessName, setBusinessName] = useState("");
+  const [instagramUrl, setInstagramUrl] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+  const [themeSaving, setThemeSaving]   = useState(false);
+  const [themeSaved, setThemeSaved]     = useState(false);
+  const [themeError, setThemeError]     = useState("");
+  const [themeUploading, setThemeUploading] = useState(false);
+  const logoRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(() =>
     fetch("/api/admin/fields")
@@ -503,15 +683,11 @@ export default function FieldsPage() {
       const r = await fetch("/api/admin/fields");
       const d = await r.json();
       if (Array.isArray(d) && d.length === 0) {
-        // Seed first, then load populated fields
         setSeeding(true);
         const seedRes = await fetch("/api/admin/seed-fields", { method: "POST" });
         const seedJson = await seedRes.json().catch(() => ({}));
         setSeeding(false);
-        if (seedJson.error) {
-          setError(`Seed failed: ${seedJson.error}`);
-        }
-        // Always reload after attempting seed
+        if (seedJson.error) setError(`Seed failed: ${seedJson.error}`);
         await load();
       } else {
         setFields(Array.isArray(d) ? d : []);
@@ -520,10 +696,73 @@ export default function FieldsPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const selectedField = fields.find((f) => f.id === selectedId) ?? null;
-  const panelOpen = addingNew || selectedId !== null;
+  // Load Google Fonts + appearance settings on mount
+  useEffect(() => {
+    const families = FONT_OPTIONS.map(f => `family=${encodeURIComponent(f)}:wght@400;700`).join("&");
+    const link = document.createElement("link");
+    link.href = `https://fonts.googleapis.com/css2?${families}&display=swap`;
+    link.rel = "stylesheet";
+    document.head.appendChild(link);
 
-  // Build section groups in display order
+    fetch("/api/admin/settings")
+      .then(r => r.json())
+      .then(d => {
+        if (d.brand_color)   setBrandColor(d.brand_color);
+        if (d.accent_color)  setAccentColor(d.accent_color);
+        if (d.font_family)   setFontFamily(d.font_family);
+        if (d.logo_url !== undefined) setLogoUrl(d.logo_url);
+        if (d.business_name) setBusinessName(d.business_name);
+        if (d.instagram_url) setInstagramUrl(d.instagram_url);
+        if (d.contact_email) setContactEmail(d.contact_email);
+        if (d.contact_phone) setContactPhone(d.contact_phone);
+      });
+  }, []);
+
+  const handleThemeSave = async () => {
+    setThemeSaving(true);
+    setThemeError("");
+    try {
+      const res = await fetch("/api/admin/settings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          brand_color: brandColor, accent_color: accentColor,
+          font_family: fontFamily, logo_url: logoUrl,
+          business_name: businessName, instagram_url: instagramUrl,
+          contact_email: contactEmail, contact_phone: contactPhone,
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to save");
+      setThemeSaved(true);
+      setTimeout(() => setThemeSaved(false), 2500);
+      router.refresh();
+    } catch (err: unknown) {
+      setThemeError(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setThemeSaving(false);
+    }
+  };
+
+  const handleThemeLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setThemeUploading(true);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const res = await fetch("/api/admin/upload-logo", { method: "POST", body: form });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error);
+      setLogoUrl(json.url);
+    } catch (err: unknown) {
+      setThemeError(err instanceof Error ? err.message : "Upload failed");
+    } finally {
+      setThemeUploading(false);
+    }
+  };
+
+  const selectedField = fields.find((f) => f.id === selectedId) ?? null;
+
   const sections = useMemo(() => {
     const bySection: Record<string, CustomField[]> = {};
     for (const f of fields) {
@@ -614,6 +853,7 @@ export default function FieldsPage() {
     setSelectedId(null);
     setNewFieldSection(section);
     setAddingNew(true);
+    setPanelTab("field");
   };
 
   const closePanel = () => { setSelectedId(null); setAddingNew(false); };
@@ -628,13 +868,14 @@ export default function FieldsPage() {
     );
   }
 
+  const showEditor = panelTab === "field" && (addingNew || selectedId !== null);
+
   return (
-    <div className="flex items-start">
+    <div className="flex items-start min-h-[calc(100vh-57px)]">
       {/* ── LEFT: full-form WYSIWYG ─────────────────────────────────────── */}
-      <div className="flex-1 min-w-0 px-4 py-8">
+      <div className="flex-1 min-w-0 px-4 py-8 overflow-y-auto">
         <div className="max-w-xl mx-auto space-y-6">
 
-          {/* Header */}
           <div className="flex items-center justify-between">
             <div>
               <h1 className="text-lg font-black uppercase tracking-widest text-brand">Form Builder</h1>
@@ -656,7 +897,6 @@ export default function FieldsPage() {
             <p className="text-red-500 text-sm bg-red-50 border border-red-200 rounded-lg px-4 py-3">{error}</p>
           )}
 
-          {/* ── Section cards ─────────────────────────────────────────────── */}
           {sections.length === 0 ? (
             <div
               className="text-center py-16 border-2 border-dashed border-gray-200 rounded-2xl text-gray-400 cursor-pointer hover:border-brand-accent hover:text-brand-accent transition bg-white"
@@ -679,14 +919,17 @@ export default function FieldsPage() {
                       index={i}
                       sectionFields={sectionFields}
                       selected={selectedId === field.id}
-                      onSelect={() => { setSelectedId(field.id); setAddingNew(false); }}
+                      onSelect={() => {
+                        setSelectedId(field.id);
+                        setAddingNew(false);
+                        setPanelTab("field");
+                      }}
                       onMove={(dir) => move(sectionKey, i, dir)}
                       onToggleActive={() => handleToggleActive(field)}
                       onDelete={() => handleDelete(field.id)}
                     />
                   ))}
 
-                  {/* Per-section add button */}
                   <button
                     onClick={() => openAdd(sectionKey)}
                     className="w-full border-2 border-dashed border-gray-200 rounded-xl py-2.5 text-sm font-semibold text-gray-400 hover:border-brand-accent hover:text-brand-accent transition"
@@ -696,7 +939,6 @@ export default function FieldsPage() {
                 </section>
               ))}
 
-              {/* Submit button preview */}
               <div className="pointer-events-none select-none opacity-40">
                 <div className="w-full bg-brand-accent text-white font-bold py-4 rounded-2xl text-center text-lg uppercase tracking-widest">
                   Submit Quote Request
@@ -707,10 +949,52 @@ export default function FieldsPage() {
         </div>
       </div>
 
-      {/* ── RIGHT: sticky editor panel ──────────────────────────────────── */}
-      <div className={`shrink-0 overflow-hidden transition-all duration-300 ${panelOpen ? "w-[360px]" : "w-0"}`}>
-        <div className="w-[360px] sticky top-[57px] h-[calc(100vh-57px)] flex flex-col">
-          {panelOpen && (
+      {/* ── RIGHT: always-visible customizer panel ──────────────────────── */}
+      <div className="shrink-0 w-[340px] sticky top-[57px] h-[calc(100vh-57px)] flex flex-col border-l border-gray-200 bg-white">
+
+        {/* Tab bar */}
+        <div className="flex shrink-0 border-b border-gray-200">
+          <button
+            onClick={() => setPanelTab("field")}
+            className={`flex-1 py-3 text-xs font-bold uppercase tracking-widest transition ${
+              panelTab === "field"
+                ? "text-brand-accent border-b-2 border-brand-accent -mb-px bg-brand-accent/5"
+                : "text-gray-400 hover:text-gray-700"
+            }`}
+          >
+            Field
+          </button>
+          <button
+            onClick={() => setPanelTab("theme")}
+            className={`flex-1 py-3 text-xs font-bold uppercase tracking-widest transition ${
+              panelTab === "theme"
+                ? "text-brand-accent border-b-2 border-brand-accent -mb-px bg-brand-accent/5"
+                : "text-gray-400 hover:text-gray-700"
+            }`}
+          >
+            Theme
+          </button>
+        </div>
+
+        {/* Panel content */}
+        <div className="flex-1 min-h-0 flex flex-col">
+          {panelTab === "theme" ? (
+            <ThemePanel
+              brandColor={brandColor} setBrandColor={setBrandColor}
+              accentColor={accentColor} setAccentColor={setAccentColor}
+              fontFamily={fontFamily} setFontFamily={setFontFamily}
+              logoUrl={logoUrl} setLogoUrl={setLogoUrl}
+              businessName={businessName} setBusinessName={setBusinessName}
+              instagramUrl={instagramUrl} setInstagramUrl={setInstagramUrl}
+              contactEmail={contactEmail} setContactEmail={setContactEmail}
+              contactPhone={contactPhone} setContactPhone={setContactPhone}
+              saving={themeSaving} saved={themeSaved} error={themeError}
+              uploading={themeUploading}
+              logoRef={logoRef}
+              onSave={handleThemeSave}
+              onLogoUpload={handleThemeLogoUpload}
+            />
+          ) : showEditor ? (
             <EditorPanel
               field={addingNew ? null : selectedField}
               isNew={addingNew}
@@ -721,6 +1005,12 @@ export default function FieldsPage() {
               onCancel={closePanel}
               onDelete={handleDelete}
             />
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-10 text-gray-400">
+              <span className="text-4xl mb-3 opacity-30">&#9999;&#65038;</span>
+              <p className="text-sm font-medium text-gray-500">Click any field to edit it</p>
+              <p className="text-xs mt-1">Or use &ldquo;+ Add Field&rdquo; to create a new one</p>
+            </div>
           )}
         </div>
       </div>

@@ -7,7 +7,7 @@ import { useRouter } from "next/navigation";
 export type FieldType =
   | "text" | "email" | "tel" | "url" | "date"
   | "number" | "textarea" | "select" | "radio"
-  | "checkbox" | "checkbox_group";
+  | "checkbox" | "checkbox_group" | "print_item";
 
 export type CustomField = {
   id: string;
@@ -56,6 +56,97 @@ function FieldWrapper({
   );
 }
 
+// ── Print item field (expandable detail block) ─────────────────────────────
+
+const PRINT_LOCATIONS = ["Front", "Back", "Left Sleeve", "Right Sleeve", "Hood", "Other"];
+
+function PrintItemField({
+  field,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  register,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  errors,
+}: {
+  field: CustomField;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  register: any;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  errors: any;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const key = field.field_key ?? field.id;
+  const error: string | undefined = errors[key]?.message;
+
+  return (
+    <div className="space-y-3">
+      <FieldWrapper label={field.label} required={field.required} error={error}>
+        <input
+          type="text"
+          {...register(key, field.required ? { required: `${field.label} is required` } : {})}
+          placeholder={field.placeholder || "e.g. Hoodies, T-Shirts, Sweatpants\u2026"}
+          className="form-input"
+        />
+      </FieldWrapper>
+
+      <button
+        type="button"
+        onClick={() => setExpanded((v) => !v)}
+        className="text-sm font-semibold text-brand-accent hover:underline flex items-center gap-1 transition"
+      >
+        {expanded ? "- Hide print details" : "+ Add print details (optional)"}
+      </button>
+
+      {expanded && (
+        <div className="border border-gray-200 rounded-xl p-4 space-y-4 bg-gray-50">
+          <div>
+            <label className="form-label">Product / Style</label>
+            <input type="text" {...register(`${key}__product_style`)}
+              placeholder="e.g. Gildan 18000, Next Level 6210\u2026" className="form-input" />
+          </div>
+
+          <div>
+            <label className="form-label">Print Locations</label>
+            <div className="flex flex-wrap gap-3 mt-1">
+              {PRINT_LOCATIONS.map((loc) => (
+                <label key={loc} className="flex items-center gap-2 text-sm cursor-pointer">
+                  <input type="checkbox" value={loc} {...register(`${key}__locations`)}
+                    className="accent-brand-accent w-4 h-4" />
+                  {loc}
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label className="form-label">No. of ink colors</label>
+              <input type="number" {...register(`${key}__ink_color_count`)} min={1}
+                placeholder="e.g. 2" className="form-input" />
+            </div>
+            <div>
+              <label className="form-label">Ink color description</label>
+              <input type="text" {...register(`${key}__ink_colors`)}
+                placeholder="e.g. Black, White" className="form-input" />
+            </div>
+          </div>
+
+          <div>
+            <label className="form-label">Preferred brand / style</label>
+            <input type="text" {...register(`${key}__brand`)}
+              placeholder="e.g. Gildan, Next Level, no preference" className="form-input" />
+          </div>
+
+          <div>
+            <label className="form-label">Additional print notes</label>
+            <textarea {...register(`${key}__notes`)}
+              placeholder="Anything else about this print item?" className="form-input min-h-[60px] resize-y" />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Individual field renderer ───────────────────────────────────────────────
 
 function DynamicField({
@@ -71,6 +162,11 @@ function DynamicField({
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   errors: any;
 }) {
+  // Print item handled by its own component
+  if (field.field_type === "print_item") {
+    return <PrintItemField field={field} register={register} errors={errors} />;
+  }
+
   const key = field.field_key ?? field.id;
   const error: string | undefined = errors[key]?.message;
   const validationRules = field.required

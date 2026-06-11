@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 
 const FONT_OPTIONS = [
   "Inter",
@@ -14,14 +15,24 @@ const FONT_OPTIONS = [
 ] as const;
 
 export default function SettingsPage() {
-  const [brandColor, setBrandColor] = useState("#1a1a2e");
+  const router = useRouter();
+
+  // Appearance
+  const [brandColor, setBrandColor]   = useState("#1a1a2e");
   const [accentColor, setAccentColor] = useState("#e94560");
-  const [fontFamily, setFontFamily] = useState<string>("Inter");
-  const [logoUrl, setLogoUrl] = useState<string | null>(null);
+  const [fontFamily, setFontFamily]   = useState<string>("Inter");
+  const [logoUrl, setLogoUrl]         = useState<string | null>(null);
+
+  // Business info
+  const [businessName, setBusinessName] = useState("");
+  const [instagramUrl, setInstagramUrl] = useState("");
+  const [contactEmail, setContactEmail] = useState("");
+  const [contactPhone, setContactPhone] = useState("");
+
   const [uploading, setUploading] = useState(false);
-  const [saving, setSaving] = useState(false);
-  const [saved, setSaved] = useState(false);
-  const [error, setError] = useState("");
+  const [saving, setSaving]       = useState(false);
+  const [saved, setSaved]         = useState(false);
+  const [error, setError]         = useState("");
   const fileRef = useRef<HTMLInputElement>(null);
 
   // Load all preview fonts once on mount
@@ -40,10 +51,14 @@ export default function SettingsPage() {
     fetch("/api/admin/settings")
       .then((r) => r.json())
       .then((d) => {
-        if (d.brand_color) setBrandColor(d.brand_color);
-        if (d.accent_color) setAccentColor(d.accent_color);
-        if (d.font_family) setFontFamily(d.font_family);
-        if (d.logo_url) setLogoUrl(d.logo_url);
+        if (d.brand_color)   setBrandColor(d.brand_color);
+        if (d.accent_color)  setAccentColor(d.accent_color);
+        if (d.font_family)   setFontFamily(d.font_family);
+        if (d.logo_url)      setLogoUrl(d.logo_url);
+        if (d.business_name) setBusinessName(d.business_name);
+        if (d.instagram_url) setInstagramUrl(d.instagram_url);
+        if (d.contact_email) setContactEmail(d.contact_email);
+        if (d.contact_phone) setContactPhone(d.contact_phone);
       });
   }, []);
 
@@ -77,15 +92,21 @@ export default function SettingsPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          brand_color: brandColor,
-          accent_color: accentColor,
-          font_family: fontFamily,
-          logo_url: logoUrl,
+          brand_color:   brandColor,
+          accent_color:  accentColor,
+          font_family:   fontFamily,
+          logo_url:      logoUrl,
+          business_name: businessName,
+          instagram_url: instagramUrl,
+          contact_email: contactEmail,
+          contact_phone: contactPhone,
         }),
       });
       if (!res.ok) throw new Error("Failed to save");
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
+      // Re-render server components so the new CSS variables take effect immediately
+      router.refresh();
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : "Save failed");
     } finally {
@@ -98,6 +119,56 @@ export default function SettingsPage() {
       <h1 className="text-2xl font-black uppercase tracking-widest text-brand">
         Appearance
       </h1>
+
+      {/* ── Business Info ── */}
+      <section className="bg-white rounded-2xl shadow-sm p-6 space-y-5">
+        <h2 className="section-heading">Business Info</h2>
+        <p className="text-xs text-gray-400">
+          Shown on the public quote form — name appears in the header when no logo is set, and contact details appear below the form title.
+        </p>
+        <div>
+          <label className="form-label">Business Name</label>
+          <input
+            type="text"
+            className="form-input"
+            value={businessName}
+            onChange={(e) => setBusinessName(e.target.value)}
+            placeholder="Latziyela Prints"
+          />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label className="form-label">Instagram URL</label>
+            <input
+              type="url"
+              className="form-input"
+              value={instagramUrl}
+              onChange={(e) => setInstagramUrl(e.target.value)}
+              placeholder="https://www.instagram.com/latziyela_prints/"
+            />
+          </div>
+          <div>
+            <label className="form-label">Contact Email</label>
+            <input
+              type="email"
+              className="form-input"
+              value={contactEmail}
+              onChange={(e) => setContactEmail(e.target.value)}
+              placeholder="hello@latziyela.com"
+            />
+          </div>
+          <div>
+            <label className="form-label">Contact Phone</label>
+            <input
+              type="tel"
+              className="form-input"
+              value={contactPhone}
+              onChange={(e) => setContactPhone(e.target.value)}
+              placeholder="(555) 000-0000"
+            />
+          </div>
+        </div>
+      </section>
 
       {/* ── Colors ── */}
       <section className="bg-white rounded-2xl shadow-sm p-6 space-y-5">
@@ -217,7 +288,7 @@ export default function SettingsPage() {
           {uploading ? "Uploading…" : logoUrl ? "Replace logo" : "Upload logo"}
         </button>
         <p className="text-xs text-gray-400">
-          PNG or SVG recommended. Appears in the site header next to the name.
+          PNG or SVG recommended. Replaces the business name in the form header.
         </p>
       </section>
 
