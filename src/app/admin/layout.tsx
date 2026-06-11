@@ -33,7 +33,7 @@ export default async function AdminLayout({
           {/* Form link */}
           {user && (
             <a
-              href={`/form/${user.id}`}
+              href="/quote"
               target="_blank"
               rel="noopener noreferrer"
               className="px-4 py-4 text-xs font-semibold text-brand-accent hover:text-red-600 transition hidden sm:block"

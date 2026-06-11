@@ -8,10 +8,10 @@ export async function POST(req: NextRequest) {
 
     // ── New dynamic form format ───────────────────────────────────────────────
     if (body.fieldData !== undefined) {
-      const { fieldData, formOwnerId } = body as {
+      const { fieldData } = body as {
         fieldData: Record<string, unknown>;
-        formOwnerId: string;
       };
+      const formOwnerId = process.env.ADMIN_USER_ID ?? null;
 
       // Best-effort: find email value anywhere in fieldData (key might vary)
       const emailValue =

@@ -12,7 +12,7 @@ export default function SuccessPage() {
         within 1–3 business days.
       </p>
       <Link
-        href="/"
+        href="/quote"
         className="inline-block bg-brand-accent text-white font-bold px-8 py-3 rounded-xl uppercase tracking-widest text-sm hover:bg-red-600 transition"
       >
         Submit Another Request

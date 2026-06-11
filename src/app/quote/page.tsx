@@ -5,15 +5,11 @@ import { notFound } from "next/navigation";
 
 export const dynamic = "force-dynamic";
 
-export default async function UserFormPage({
-  params,
-}: {
-  params: { userId: string };
-}) {
-  const { userId } = params;
+export default async function QuotePage() {
+  const userId = process.env.ADMIN_USER_ID!;
   const supabase = createSupabaseAdmin();
 
-  // Fetch this user's active fields
+  // Fetch active fields
   const { data: fields, error } = await supabase
     .from("custom_fields")
     .select("*")
@@ -22,12 +18,11 @@ export default async function UserFormPage({
     .order("section")
     .order("sort_order");
 
-  // Only 404 on a DB error or an invalid userId — empty fields is fine (show a blank form)
   if (error) {
     notFound();
   }
 
-  // Fetch this user's brand settings — try user-scoped first, fall back to any row (legacy)
+  // Fetch brand settings — try user-scoped first, fall back to any row (legacy)
   let { data: settings } = await supabase
     .from("site_settings")
     .select("*")
