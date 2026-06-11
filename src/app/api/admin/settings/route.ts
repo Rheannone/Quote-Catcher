@@ -43,6 +43,9 @@ export async function POST(req: NextRequest) {
   if (body.instagram_url !== undefined) patch.instagram_url = body.instagram_url;
   if (body.contact_email !== undefined) patch.contact_email = body.contact_email;
   if (body.contact_phone !== undefined) patch.contact_phone = body.contact_phone;
+  if (body.form_headline !== undefined) patch.form_headline = body.form_headline;
+  if (body.form_subtitle_html !== undefined) patch.form_subtitle_html = body.form_subtitle_html;
+  if (body.header_style !== undefined) patch.header_style = body.header_style;
 
   // Look for an existing row: this user's row, or a legacy row with null user_id
   const { data: existing } = await supabase

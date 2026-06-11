@@ -32,11 +32,41 @@ function PhoneIcon() {
   );
 }
 
+function LogoOrName({
+  logoUrl,
+  businessName,
+  fontFamily,
+  size = "sm",
+}: {
+  logoUrl: string | null;
+  businessName: string;
+  fontFamily: string;
+  size?: "sm" | "lg";
+}) {
+  if (logoUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={logoUrl}
+        alt={businessName}
+        className={size === "lg" ? "h-14 object-contain rounded" : "h-9 object-contain rounded"}
+      />
+    );
+  }
+  return (
+    <span
+      className={`font-black tracking-widest uppercase ${size === "lg" ? "text-3xl" : "text-xl"}`}
+      style={{ fontFamily: `'${fontFamily}', sans-serif` }}
+    >
+      {businessName}
+    </span>
+  );
+}
+
 export default async function QuotePage() {
   const userId = process.env.ADMIN_USER_ID!;
   const supabase = createSupabaseAdmin();
 
-  // Fetch active fields
   const { data: fields, error } = await supabase
     .from("custom_fields")
     .select("*")
@@ -45,11 +75,8 @@ export default async function QuotePage() {
     .order("section")
     .order("sort_order");
 
-  if (error) {
-    notFound();
-  }
+  if (error) notFound();
 
-  // Fetch brand settings — try user-scoped first, fall back to any row (legacy)
   let { data: settings } = await supabase
     .from("site_settings")
     .select("*")
@@ -57,25 +84,24 @@ export default async function QuotePage() {
     .maybeSingle();
 
   if (!settings) {
-    const { data: fallback } = await supabase
-      .from("site_settings")
-      .select("*")
-      .maybeSingle();
+    const { data: fallback } = await supabase.from("site_settings").select("*").maybeSingle();
     settings = fallback;
   }
 
   const s = settings as Record<string, unknown> | null;
 
-  const brandColor   = s?.brand_color   as string ?? "#1a1a2e";
-  const accentColor  = s?.accent_color  as string ?? "#e63946";
-  const fontFamily   = s?.font_family   as string ?? "Inter";
-  const logoUrl      = s?.logo_url      as string | null ?? null;
-  const businessName = s?.business_name as string ?? "Latziyela Prints";
-  const instagramUrl = s?.instagram_url as string ?? "";
-  const contactEmail = s?.contact_email as string ?? "";
-  const contactPhone = s?.contact_phone as string ?? "";
+  const brandColor        = s?.brand_color        as string ?? "#1a1a2e";
+  const accentColor       = s?.accent_color       as string ?? "#e63946";
+  const fontFamily        = s?.font_family        as string ?? "Inter";
+  const logoUrl           = s?.logo_url           as string | null ?? null;
+  const businessName      = s?.business_name      as string ?? "Latziyela Prints";
+  const instagramUrl      = s?.instagram_url      as string ?? "";
+  const contactEmail      = s?.contact_email      as string ?? "";
+  const contactPhone      = s?.contact_phone      as string ?? "";
+  const formHeadline      = s?.form_headline      as string ?? "Request a Quote";
+  const formSubtitleHtml  = s?.form_subtitle_html as string ?? "";
+  const headerStyle       = s?.header_style       as string ?? "bar-left";
 
-  // Extract Instagram handle for display
   const igHandle = instagramUrl
     ? instagramUrl.replace(/^https?:\/\/(www\.)?instagram\.com\//, "").replace(/\/$/, "")
     : null;
@@ -87,29 +113,34 @@ export default async function QuotePage() {
     "--brand-accent": accentColor,
   } as React.CSSProperties;
 
-  return (
-    <div
-      style={{ ...cssVars, fontFamily: "'Inter', -apple-system, sans-serif" }}
-      className="min-h-screen flex flex-col"
-    >
-      {/* Branded header */}
-      <header className="bg-brand text-white py-5 px-6 shadow-md">
-        <div className="max-w-3xl mx-auto flex items-center gap-3">
-          {logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={logoUrl} alt="Logo" className="h-9 object-contain rounded" />
-          ) : (
-            <span
-              className="font-black text-xl tracking-widest uppercase"
-              style={{ fontFamily: `'${fontFamily}', sans-serif` }}
-            >
-              {businessName}
-            </span>
-          )}
-        </div>
-      </header>
+  const defaultSubtitle = "Fill out the form below and we\u2019ll get back to you within 1\u20133 business days.";
 
-      {/* Form body */}
+  return (
+    <div style={{ ...cssVars, fontFamily: "'Inter', -apple-system, sans-serif" }} className="min-h-screen flex flex-col">
+
+      {/* ── Header variants ── */}
+      {headerStyle === "splash" ? (
+        <header className="bg-brand text-white py-14 px-6 text-center shadow-md">
+          <div className="max-w-3xl mx-auto flex flex-col items-center gap-4">
+            <LogoOrName logoUrl={logoUrl} businessName={businessName} fontFamily={fontFamily} size="lg" />
+          </div>
+        </header>
+      ) : headerStyle === "bar-center" ? (
+        <header className="bg-brand text-white py-5 px-6 shadow-md">
+          <div className="max-w-3xl mx-auto flex items-center justify-center gap-3">
+            <LogoOrName logoUrl={logoUrl} businessName={businessName} fontFamily={fontFamily} />
+          </div>
+        </header>
+      ) : (
+        /* bar-left (default) */
+        <header className="bg-brand text-white py-5 px-6 shadow-md">
+          <div className="max-w-3xl mx-auto flex items-center gap-3">
+            <LogoOrName logoUrl={logoUrl} businessName={businessName} fontFamily={fontFamily} />
+          </div>
+        </header>
+      )}
+
+      {/* ── Form body ── */}
       <main className="flex-1">
         <div className="max-w-3xl mx-auto px-4 py-10">
           <div className="mb-8 text-center">
@@ -117,41 +148,38 @@ export default async function QuotePage() {
               className="text-3xl font-black uppercase tracking-widest text-brand mb-2"
               style={{ fontFamily: `'${fontFamily}', sans-serif` }}
             >
-              Request a Quote
+              {formHeadline}
             </h1>
-            <p className="text-gray-500 text-sm max-w-xl mx-auto">
-              Fill out the form below and we&apos;ll get back to you within 1–3 business days.
-            </p>
+            {formSubtitleHtml ? (
+              <div
+                className="text-gray-500 text-sm max-w-xl mx-auto prose prose-sm"
+                dangerouslySetInnerHTML={{ __html: formSubtitleHtml }}
+              />
+            ) : (
+              <p className="text-gray-500 text-sm max-w-xl mx-auto">{defaultSubtitle}</p>
+            )}
           </div>
 
           {/* Contact / social card */}
           {hasContact && (
             <div className="mb-8 bg-white rounded-2xl shadow-sm border border-gray-100 p-4 flex flex-wrap gap-5 items-center justify-center">
               {igHandle && (
-                <a
-                  href={instagramUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-2 text-sm font-semibold text-brand-accent hover:underline transition"
-                >
+                <a href={instagramUrl} target="_blank" rel="noopener noreferrer"
+                   className="flex items-center gap-2 text-sm font-semibold text-brand-accent hover:underline transition">
                   <InstagramIcon />
                   @{igHandle}
                 </a>
               )}
               {contactEmail && (
-                <a
-                  href={`mailto:${contactEmail}`}
-                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-brand-accent transition"
-                >
+                <a href={`mailto:${contactEmail}`}
+                   className="flex items-center gap-2 text-sm text-gray-600 hover:text-brand-accent transition">
                   <MailIcon />
                   {contactEmail}
                 </a>
               )}
               {contactPhone && (
-                <a
-                  href={`tel:${contactPhone}`}
-                  className="flex items-center gap-2 text-sm text-gray-600 hover:text-brand-accent transition"
-                >
+                <a href={`tel:${contactPhone}`}
+                   className="flex items-center gap-2 text-sm text-gray-600 hover:text-brand-accent transition">
                   <PhoneIcon />
                   {contactPhone}
                 </a>
@@ -165,15 +193,12 @@ export default async function QuotePage() {
             <div className="text-center py-16 bg-white rounded-2xl shadow-sm">
               <p className="text-4xl mb-3">🛠️</p>
               <h2 className="font-bold text-gray-700">Form being configured</h2>
-              <p className="text-sm text-gray-400 mt-2">
-                This form isn&apos;t ready yet. Check back soon!
-              </p>
+              <p className="text-sm text-gray-400 mt-2">This form isn&apos;t ready yet. Check back soon!</p>
             </div>
           )}
         </div>
       </main>
 
-      {/* Branded footer */}
       <footer className="bg-brand text-white text-center text-xs py-4 mt-10">
         &copy; {new Date().getFullYear()} {businessName}. All rights reserved.
       </footer>
