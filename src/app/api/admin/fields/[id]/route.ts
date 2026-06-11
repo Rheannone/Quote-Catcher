@@ -10,6 +10,7 @@ export async function PUT(
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const supabase = getSupabaseAdmin();
+  const ownerId = process.env.ADMIN_USER_ID!;
   const body = await req.json();
 
   const { error } = await supabase
@@ -25,7 +26,7 @@ export async function PUT(
       placeholder: body.placeholder ?? null,
     })
     .eq("id", params.id)
-    .eq("user_id", user.id); // ensure ownership
+    .eq("user_id", ownerId);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });
@@ -39,11 +40,13 @@ export async function DELETE(
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const supabase = getSupabaseAdmin();
+  const ownerId = process.env.ADMIN_USER_ID!;
+
   const { error } = await supabase
     .from("custom_fields")
     .delete()
     .eq("id", params.id)
-    .eq("user_id", user.id); // ensure ownership
+    .eq("user_id", ownerId);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   return NextResponse.json({ ok: true });

@@ -112,27 +112,27 @@ export default async function AdminPage() {
     Promise.resolve(createSupabaseAdmin()),
   ]);
 
-  // Fetch this user's field definitions to build a label map
-  const labelMap: Record<string, string> = {};
-  if (user) {
-    const { data: fieldDefs } = await supabase
-      .from("custom_fields")
-      .select("id, field_key, label")
-      .eq("user_id", user.id);
+  const ownerId = process.env.ADMIN_USER_ID!;
 
-    for (const f of (fieldDefs ?? []) as FieldDef[]) {
-      labelMap[f.id] = f.label;
-      if (f.field_key) labelMap[f.field_key] = f.label;
-    }
+  // Fetch field definitions to build a label map
+  const labelMap: Record<string, string> = {};
+  const { data: fieldDefs } = await supabase
+    .from("custom_fields")
+    .select("id, field_key, label")
+    .eq("user_id", ownerId);
+
+  for (const f of (fieldDefs ?? []) as FieldDef[]) {
+    labelMap[f.id] = f.label;
+    if (f.field_key) labelMap[f.field_key] = f.label;
   }
 
-  // Fetch quotes — scoped to this user if they have any, otherwise all
+  // Fetch quotes scoped to the single owner
   const query = supabase
     .from("quotes")
     .select("*")
     .order("created_at", { ascending: false });
 
-  if (user) query.or(`owner_user_id.eq.${user.id},owner_user_id.is.null`);
+  query.or(`owner_user_id.eq.${ownerId},owner_user_id.is.null`);
 
   const { data: quotes, error } = await query;
 

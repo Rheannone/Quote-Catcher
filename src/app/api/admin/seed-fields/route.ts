@@ -2,9 +2,6 @@ import { NextResponse } from "next/server";
 import { getSupabaseAdmin } from "@/lib/supabase";
 import { getSessionUser } from "@/lib/supabase-server";
 
-// All 17 default fields, seeded once per new user.
-// field_type values must match the DB check constraint — run schema_fields_v2.sql
-// to unlock: email, tel, url, date, radio, checkbox_group
 const DEFAULT_FIELDS = [
   // ── Contact Information ───────────────────────────────────────────────────
   { field_key: "firstName",        label: "First Name",                        field_type: "text",          required: true,  section: "contact", sort_order: 0,  placeholder: "Jane",                                                 options: null },
@@ -33,18 +30,18 @@ export async function POST() {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const supabase = getSupabaseAdmin();
+  const ownerId = process.env.ADMIN_USER_ID!;
 
-  // Only seed if the user has zero fields
   const { count } = await supabase
     .from("custom_fields")
     .select("*", { count: "exact", head: true })
-    .eq("user_id", user.id);
+    .eq("user_id", ownerId);
 
   if ((count ?? 0) > 0) {
     return NextResponse.json({ seeded: false, message: "Fields already exist" });
   }
 
-  const rows = DEFAULT_FIELDS.map((f) => ({ ...f, user_id: user.id, active: true }));
+  const rows = DEFAULT_FIELDS.map((f) => ({ ...f, user_id: ownerId, active: true }));
   const { error } = await supabase.from("custom_fields").insert(rows);
 
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });

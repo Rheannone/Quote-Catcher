@@ -7,10 +7,12 @@ export async function GET() {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const supabase = getSupabaseAdmin();
+  const ownerId = process.env.ADMIN_USER_ID!;
+
   const { data, error } = await supabase
     .from("custom_fields")
     .select("*")
-    .eq("user_id", user.id)
+    .eq("user_id", ownerId)
     .order("section")
     .order("sort_order");
 
@@ -23,13 +25,13 @@ export async function POST(req: NextRequest) {
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const supabase = getSupabaseAdmin();
+  const ownerId = process.env.ADMIN_USER_ID!;
   const body = await req.json();
 
-  // Determine next sort_order within this user's fields
   const { data: last } = await supabase
     .from("custom_fields")
     .select("sort_order")
-    .eq("user_id", user.id)
+    .eq("user_id", ownerId)
     .order("sort_order", { ascending: false })
     .limit(1)
     .maybeSingle();
@@ -48,7 +50,7 @@ export async function POST(req: NextRequest) {
       field_key: body.field_key ?? null,
       sort_order,
       active: true,
-      user_id: user.id,
+      user_id: ownerId,
     }])
     .select()
     .single();
