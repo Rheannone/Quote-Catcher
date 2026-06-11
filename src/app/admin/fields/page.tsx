@@ -425,7 +425,7 @@ function ThemePanel({
   businessName, setBusinessName, instagramUrl, setInstagramUrl,
   contactEmail, setContactEmail, contactPhone, setContactPhone,
   formHeadline, setFormHeadline, formSubtitleHtml, setFormSubtitleHtml,
-  headerStyle, setHeaderStyle,
+  headerStyle, setHeaderStyle, headerBgColor, setHeaderBgColor,
   saving, saved, error, uploading,
   logoRef, onSave, onLogoUpload,
 }: {
@@ -440,6 +440,7 @@ function ThemePanel({
   formHeadline: string; setFormHeadline: (v: string) => void;
   formSubtitleHtml: string; setFormSubtitleHtml: (v: string) => void;
   headerStyle: string; setHeaderStyle: (v: string) => void;
+  headerBgColor: string; setHeaderBgColor: (v: string) => void;
   saving: boolean; saved: boolean; error: string; uploading: boolean;
   logoRef: React.RefObject<HTMLInputElement>;
   onSave: () => void;
@@ -466,6 +467,19 @@ function ThemePanel({
                 <span className={`text-[10px] font-semibold ${headerStyle === key ? "text-brand-accent" : "text-gray-500"}`}>{label}</span>
               </button>
             ))}
+          </div>
+        </div>
+
+        {/* Header Color */}
+        <div className="space-y-2">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">Header Color</p>
+          <div className="flex items-center gap-2">
+            <input type="color" value={headerBgColor} onChange={(e) => setHeaderBgColor(e.target.value)} className="w-10 h-9 rounded cursor-pointer border border-gray-300" />
+            <input type="text" value={headerBgColor} onChange={(e) => setHeaderBgColor(e.target.value)} className="form-input font-mono text-sm" />
+          </div>
+          <div className="flex gap-1.5">
+            <button type="button" onClick={() => setHeaderBgColor(brandColor)} className="text-[10px] border border-gray-200 rounded-full px-2 py-0.5 hover:border-gray-400 text-gray-500 transition">Use Primary</button>
+            <button type="button" onClick={() => setHeaderBgColor(accentColor)} className="text-[10px] border border-gray-200 rounded-full px-2 py-0.5 hover:border-gray-400 text-gray-500 transition">Use Accent</button>
           </div>
         </div>
 
@@ -607,6 +621,7 @@ export default function FieldsPage() {
   const [formHeadline, setFormHeadline]     = useState("");
   const [formSubtitleHtml, setFormSubtitleHtml] = useState("");
   const [headerStyle, setHeaderStyle]       = useState("bar-left");
+  const [headerBgColor, setHeaderBgColor]   = useState("#1a1a2e");
   const [themeSaving, setThemeSaving]       = useState(false);
   const [themeSaved, setThemeSaved]         = useState(false);
   const [themeError, setThemeError]         = useState("");
@@ -656,6 +671,7 @@ export default function FieldsPage() {
       if (d.form_headline)      setFormHeadline(d.form_headline);
       if (d.form_subtitle_html) setFormSubtitleHtml(d.form_subtitle_html);
       if (d.header_style)       setHeaderStyle(d.header_style);
+      if (d.header_bg_color)    setHeaderBgColor(d.header_bg_color);
     });
   }, []);
 
@@ -668,6 +684,7 @@ export default function FieldsPage() {
           brand_color: brandColor, accent_color: accentColor, font_family: fontFamily, logo_url: logoUrl,
           business_name: businessName, instagram_url: instagramUrl, contact_email: contactEmail, contact_phone: contactPhone,
           form_headline: formHeadline, form_subtitle_html: formSubtitleHtml, header_style: headerStyle,
+          header_bg_color: headerBgColor,
         }),
       });
       if (!res.ok) throw new Error("Failed to save");
@@ -861,6 +878,7 @@ export default function FieldsPage() {
               formHeadline={formHeadline} setFormHeadline={setFormHeadline}
               formSubtitleHtml={formSubtitleHtml} setFormSubtitleHtml={setFormSubtitleHtml}
               headerStyle={headerStyle} setHeaderStyle={setHeaderStyle}
+              headerBgColor={headerBgColor} setHeaderBgColor={setHeaderBgColor}
               saving={themeSaving} saved={themeSaved} error={themeError} uploading={themeUploading}
               logoRef={logoRef} onSave={handleThemeSave} onLogoUpload={handleThemeLogoUpload}
             />

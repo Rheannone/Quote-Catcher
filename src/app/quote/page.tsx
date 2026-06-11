@@ -101,6 +101,7 @@ export default async function QuotePage() {
   const formHeadline      = s?.form_headline      as string ?? "Request a Quote";
   const formSubtitleHtml  = s?.form_subtitle_html as string ?? "";
   const headerStyle       = s?.header_style       as string ?? "bar-left";
+  const headerBgColor     = s?.header_bg_color    as string ?? brandColor;
 
   const igHandle = instagramUrl
     ? instagramUrl.replace(/^https?:\/\/(www\.)?instagram\.com\//, "").replace(/\/$/, "")
@@ -120,20 +121,20 @@ export default async function QuotePage() {
 
       {/* ── Header variants ── */}
       {headerStyle === "splash" ? (
-        <header className="bg-brand text-white py-14 px-6 text-center shadow-md">
+        <header className="text-white py-14 px-6 text-center shadow-md" style={{ backgroundColor: headerBgColor }}>
           <div className="max-w-3xl mx-auto flex flex-col items-center gap-4">
             <LogoOrName logoUrl={logoUrl} businessName={businessName} fontFamily={fontFamily} size="lg" />
           </div>
         </header>
       ) : headerStyle === "bar-center" ? (
-        <header className="bg-brand text-white py-5 px-6 shadow-md">
+        <header className="text-white py-5 px-6 shadow-md" style={{ backgroundColor: headerBgColor }}>
           <div className="max-w-3xl mx-auto flex items-center justify-center gap-3">
             <LogoOrName logoUrl={logoUrl} businessName={businessName} fontFamily={fontFamily} />
           </div>
         </header>
       ) : (
         /* bar-left (default) */
-        <header className="bg-brand text-white py-5 px-6 shadow-md">
+        <header className="text-white py-5 px-6 shadow-md" style={{ backgroundColor: headerBgColor }}>
           <div className="max-w-3xl mx-auto flex items-center gap-3">
             <LogoOrName logoUrl={logoUrl} businessName={businessName} fontFamily={fontFamily} />
           </div>
@@ -199,7 +200,7 @@ export default async function QuotePage() {
         </div>
       </main>
 
-      <footer className="bg-brand text-white text-center text-xs py-4 mt-10">
+      <footer className="text-white text-center text-xs py-4 mt-10" style={{ backgroundColor: headerBgColor }}>
         &copy; {new Date().getFullYear()} {businessName}. All rights reserved.
       </footer>
     </div>
